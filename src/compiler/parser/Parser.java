@@ -13,18 +13,17 @@ import compiler.parser.ast.nodes.expressions.operations.UnaryNode;
 import compiler.parser.ast.nodes.statements.*;
 import compiler.parser.ast.nodes.structures.ProgramNode;
 import compiler.parser.ast.nodes.terminals.*;
-import compiler.symbols.Env;
+import compiler.symbols.SymbolTable;
 import compiler.symbols.Symbol;
 
 import java.io.IOException;
 
 public class Parser implements ASTVisitor {
     public ProgramNode program;
-    public Env top = null;
+    public SymbolTable top = null;
     public Lexer lexer;
     public Token look = null;
     private int loopCount = 0;
-    public BlockNode enclosingBlock = null;
 
     public Parser(Lexer l) {
         lexer = l;
@@ -56,15 +55,33 @@ public class Parser implements ASTVisitor {
             throw new SyntaxException("expected '" );//+ lexer.convertTagToString(t) + "' instead of '" + look + "'");
     }
 
+    boolean isBinaryOperation (int op) {
+        return (op == Tag.MUL || op == Tag.DIV || op == Tag.ADD || op == Tag.SUB ||
+                op == Tag.LE || op == Tag.LT || op == Tag.GE ||
+                op == Tag.GT || op == Tag.EQ || op == Tag.NE || op == Tag.AND || op == Tag.OR);
+    }
+
+    int getPrecedence(int op) {
+        return switch (op) {
+            case Tag.MUL, Tag.DIV -> 12;
+            case Tag.ADD, Tag.SUB -> 11;
+            case Tag.LE, Tag.LT, Tag.GE, Tag.GT -> 9;
+            case Tag.EQ, Tag.NE -> 8;
+            case Tag.AND -> 7;
+            case Tag.OR -> 6;
+            default -> -1;
+        };
+    }
+
+
     // General Nodes
-    ///////////////////////////////////////////////////////////////////////////////
 
     /**
      * program -> block
      */
     @Override
     public void visit(ProgramNode n) {
-        n.block = new BlockNode(enclosingBlock);
+        n.block = new BlockNode();
         n.block.accept(this);
     }
 
@@ -75,9 +92,8 @@ public class Parser implements ASTVisitor {
     public void visit(BlockNode n) {
         match(Tag.LBRACE);
         // Save current symbol table, and create a new one for this block.
-        top = new Env(top);
+        top = new SymbolTable(top);
         n.table = top;
-        enclosingBlock = n;
 
         // So long as next token is a type, parse declarations.
         while (look.tag == Tag.BASIC) {
@@ -91,8 +107,6 @@ public class Parser implements ASTVisitor {
             StatementNode statementNode = parseStatement();
             n.statements.add(statementNode);
         }
-
-        enclosingBlock = n.parent;
         top = top.prev;
         match(Tag.RBRACE);
     }
@@ -109,7 +123,7 @@ public class Parser implements ASTVisitor {
         n.id.accept(this);
 
         // Store declared symbol in symbol table.
-        top.put(n.id.w, new Symbol(n.id.id, n.id.w, n.type, n.id));
+        top.storeSymbol(n);
 
         match(Tag.SEMICOLON);
     }
@@ -156,7 +170,7 @@ public class Parser implements ASTVisitor {
             case Tag.WHILE -> new WhileNode();
             case Tag.DO -> new DoWhileNode();
             case Tag.BREAK -> new BreakNode();
-            case Tag.LBRACE -> new BlockNode(enclosingBlock );
+            case Tag.LBRACE -> new BlockNode();
             case Tag.EOF -> throw new SyntaxException("unexpected end of file; did you miss a closing brace?");
             default ->
                     throw new SyntaxException("invalid start of a statement '" + lexer.convertTagToString(look.tag) + "'");
@@ -171,6 +185,7 @@ public class Parser implements ASTVisitor {
     @Override
     public void visit(AssignmentNode n) {
         n.setLine(lexer.getCurrentLine());
+
         n.left = new LocNode();
         n.left.accept(this);
 
@@ -186,9 +201,9 @@ public class Parser implements ASTVisitor {
     public void visit(IfNode n) {
         match(Tag.IF);
         match(Tag.LPAREN);
-
         n.expression = parseExpression();
         match(Tag.RPAREN);
+
         n.thenStatement = parseStatement();
 
         if (look.tag == Tag.ELSE) {
@@ -218,7 +233,6 @@ public class Parser implements ASTVisitor {
     @Override
     public void visit(DoWhileNode n) {
         match(Tag.DO);
-
         loopCount++;
         n.body = parseStatement();
         loopCount--;
@@ -236,12 +250,13 @@ public class Parser implements ASTVisitor {
      */
     @Override
     public void visit(LocNode n) {
-        int line = lexer.getCurrentLine();
-        if (top.get((Word) look) == null) {
+        int line = lexer.getCurrentLine(); // Todo: Why do I delay this?
+        Symbol symbol = top.getSymbol(look);
+        if (symbol == null) {
             throw new SyntaxException("'" + look + "' is not declared");
         }
         // Use previously created IdNode from symbol table.
-        n.id = top.get((Word) look).id;
+        n.id = symbol.id;
         move();
 
         if (look.tag == Tag.LBRACKET) {
@@ -257,6 +272,7 @@ public class Parser implements ASTVisitor {
     @Override
     public void visit(ArrayLocNode n) {
         int line = lexer.getCurrentLine();
+
         match(Tag.LBRACKET);
         n.expression = parseExpression();
         match(Tag.RBRACKET);
@@ -265,30 +281,12 @@ public class Parser implements ASTVisitor {
             n.array = new ArrayLocNode();
             n.array.accept(this);
         }
+
         n.setLine(line);
     }
 
     // Expression Helper Methods
     ///////////////////////////////////////////////////////////////////////////////
-
-    boolean isBinaryOperation (int op) {
-        return (op == Tag.MUL || op == Tag.DIV || op == Tag.ADD || op == Tag.SUB ||
-                op == Tag.LE || op == Tag.LT || op == Tag.GE ||
-                op == Tag.GT || op == Tag.EQ || op == Tag.NE || op == Tag.AND || op == Tag.OR);
-    }
-
-    int getPrecendence(int op) {
-        return switch (op) {
-            case Tag.MUL, Tag.DIV -> 12;
-            case Tag.ADD, Tag.SUB -> 11;
-            case Tag.LE, Tag.LT, Tag.GE, Tag.GT -> 9;
-            case Tag.EQ, Tag.NE -> 8;
-            case Tag.AND -> 7;
-            case Tag.OR -> 6;
-            default -> -1;
-        };
-    }
-
     // Expression Nodes
     ///////////////////////////////////////////////////////////////////////////////
 
@@ -303,14 +301,15 @@ public class Parser implements ASTVisitor {
     }
 
     public ExpressionNode parseBinaryExpression(ExpressionNode lhs, int precedence) {
-        while (isBinaryOperation(look.tag) && (getPrecendence(look.tag) >= precedence)) {
+        while (isBinaryOperation(look.tag) && (getPrecedence(look.tag) >= precedence)) {
             Token op = look;
             move();
             ExpressionNode rhs = parseExpression();
 
-            while (getPrecendence(look.tag) > getPrecendence(op.tag)) {
-                rhs = parseBinaryExpression(rhs, getPrecendence(look.tag));
+            while (getPrecedence(look.tag) > getPrecedence(op.tag)) {
+                rhs = parseBinaryExpression(rhs, getPrecedence(look.tag));
             }
+
             lhs = new BinaryExpressionNode(lhs, rhs, op.toString());
             lhs.accept(this);
         }
@@ -328,23 +327,21 @@ public class Parser implements ASTVisitor {
     @Override
     public void visit(UnaryNode n) {
         int line = lexer.getCurrentLine();
+
         n.op = look;
         match(look.tag);
+
         n.right = parseFactor();
+
         n.setLine(line);
     }
 
     /**
-     * factor -> parenthesis | num | real | loc | 'true' | 'false'
+     * factor -> unary | parenthesis | num | real | loc | 'true' | 'false'
      */
     public ExpressionNode parseFactor() {
-       ExpressionNode n;
-       if (look.tag == Tag.SUB || look.tag == Tag.NOT) {
-           n = new UnaryNode();
-           n.accept(this);
-           return n;
-       }
-       n = switch (look.tag) {
+       ExpressionNode n = switch (look.tag) {
+           case Tag.SUB, Tag.NOT -> new UnaryNode();
            case Tag.LPAREN -> new ParenthesisNode();
            case Tag.NUM -> new NumNode();
            case Tag.REAL -> new RealNode();
@@ -367,9 +364,6 @@ public class Parser implements ASTVisitor {
         match(Tag.RPAREN);
     }
 
-    // Terminal Nodes
-    ///////////////////////////////////////////////////////////////////////////////
-
     /**
      * basic -> 'int' | 'float'
      */
@@ -389,15 +383,6 @@ public class Parser implements ASTVisitor {
         match(Tag.BREAK);
         match(Tag.SEMICOLON);
     }
-
-    /**
-     * false -> 'false'
-     */
-    @Override
-    public void visit(FalseNode n) {
-        match(Tag.FALSE);
-    }
-
     /**
      * id -> word
      */
@@ -413,8 +398,6 @@ public class Parser implements ASTVisitor {
      */
     @Override
     public void visit(NumNode n) {
-        if (look.tag != Tag.NUM)
-            throw new SyntaxException("expected int literal instead of '" + look + "'");
         n.num = ((Num)look).value;
         match(Tag.NUM);
     }
@@ -427,6 +410,15 @@ public class Parser implements ASTVisitor {
         n.value = ((Real)look).value;
         match(Tag.REAL);
     }
+
+    /**
+     * false -> 'false'
+     */
+    @Override
+    public void visit(FalseNode n) {
+        match(Tag.FALSE);
+    }
+
 
     /**
      * true -> 'true'

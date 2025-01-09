@@ -44,7 +44,6 @@ public class IntermediateCodeGenerator implements ASTVisitor {
 
     @Override
     public void visit(BlockNode n) {
-        currentBlock = n;
         int previousIndex = statementIndex;
         boolean previousIsArray = lhsIsArray;
         boolean previousRhsIsArray = rhsIsArray;
@@ -59,7 +58,6 @@ public class IntermediateCodeGenerator implements ASTVisitor {
 
         previousLabel = previousPreviousLabel;
         n.statements = currentStatements;
-        currentBlock = n.parent;
         statementIndex = previousIndex;
         lhsIsArray = previousIsArray;
         rhsIsArray = previousRhsIsArray;

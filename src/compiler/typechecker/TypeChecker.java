@@ -12,13 +12,13 @@ import compiler.parser.ast.nodes.expressions.operations.*;
 import compiler.parser.ast.nodes.statements.*;
 import compiler.parser.ast.nodes.structures.ProgramNode;
 import compiler.parser.ast.nodes.terminals.*;
-import compiler.symbols.Env;
+import compiler.symbols.SymbolTable;
 import compiler.symbols.Symbol;
 
 public class TypeChecker implements ASTVisitor {
     public Parser parser;
     public ProgramNode program;
-    public Env env = null;
+    public SymbolTable env = null;
 
     public TypeChecker(Parser parser) {
         this.parser = parser;
@@ -265,7 +265,7 @@ public class TypeChecker implements ASTVisitor {
 
     @Override
     public void visit(IdNode n) {
-        Symbol s = env.get(n.w);
+        Symbol s = env.getSymbol(n.w);
         if (s == null) {
             // Parser should have already caught this.
             throw new SyntaxException("variable '" + n.id + "' not declared");
