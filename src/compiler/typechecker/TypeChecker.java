@@ -87,7 +87,7 @@ public class TypeChecker implements ASTVisitor {
         if (left.type != right.type)
             throw new TypeException("comparison operator '" + n.operator +
                     "' expects same types, not '" + left + "' and '" + right + "'", n.getLine());
-        n.setType(new TypeNode(Type.Bool));
+        n.setType(Type.Bool);
     }
 
     private static void validateArithmeticOperator(TypeNode left, TypeNode right, BinaryExpressionNode n) {
@@ -165,7 +165,7 @@ public class TypeChecker implements ASTVisitor {
 
         validateArrayAccess(n, declaredType);
 
-        n.setType(new TypeNode(declaredType.type));
+        n.setType(declaredType.type);
     }
 
     @Override
@@ -204,7 +204,7 @@ public class TypeChecker implements ASTVisitor {
     }
     @Override
     public void visit(FalseNode n) {
-        n.setType(new TypeNode(Type.Bool));
+        n.setType(Type.Bool);
     }
 
     @Override
@@ -214,16 +214,16 @@ public class TypeChecker implements ASTVisitor {
 
     @Override
     public void visit(NumNode n) {
-        n.setType(new TypeNode(Type.Int));
+        n.setType(Type.Int);
     }
 
     @Override
     public void visit(RealNode n) {
-        n.setType(new TypeNode(Type.Float));
+        n.setType(Type.Float);
     }
 
     @Override
     public void visit(TrueNode n) {
-        n.setType(new TypeNode(Type.Bool));
+        n.setType(Type.Bool);
     }
 }
