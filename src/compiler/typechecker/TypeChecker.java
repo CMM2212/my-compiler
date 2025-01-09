@@ -17,6 +17,7 @@ import compiler.symbols.SymbolTable;
 import java.util.Set;
 
 public class TypeChecker implements ASTVisitor {
+    public ProgramNode program;
     private SymbolTable env;
 
     private static final Set<String> LOGIC_OPERATORS = Set.of("&&", "||");
@@ -24,7 +25,7 @@ public class TypeChecker implements ASTVisitor {
     private static final Set<String> ARITHMETIC_OPERATORS = Set.of("+", "-", "*", "/");
 
     public TypeChecker(Parser parser) {
-        ProgramNode program = parser.program;
+        program = parser.program;
         visit(program);
     }
 
@@ -189,7 +190,7 @@ public class TypeChecker implements ASTVisitor {
 
         validateArrayAccess(n, declaredType);
 
-        n.setType(declaredType);
+        n.setType(declaredType.type);
     }
 
     @Override

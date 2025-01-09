@@ -16,6 +16,10 @@ public class IdNode implements TerminalNode {
         this.id = id;
     }
 
+    public String toString() {
+        return id;
+    }
+
     @Override
     public void accept(ASTVisitor v) {
         v.visit(this);

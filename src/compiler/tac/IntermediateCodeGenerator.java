@@ -16,7 +16,6 @@ import java.util.Stack;
 
 public class IntermediateCodeGenerator implements ASTVisitor {
     public ProgramNode program = null;
-    BlockNode currentBlock;
     public List<StatementNode> currentStatements;
     int statementIndex = 0;
 
@@ -64,47 +63,19 @@ public class IntermediateCodeGenerator implements ASTVisitor {
         isTopBinaryExpression = previousIsTopBinaryExpression;
     }
 
-//    @Override
-//    public void visit(DeclNode n) {
-//        n.type.accept(this);
-//        n.id.accept(this);
-//    }
-//
-//    @Override
-//    public void visit(TypeNode n) {
-//        n.type.accept(this);
-//        if (n.array != null)
-//            n.array.accept(this);
-//    }
-//
-//    @Override
-//    public void visit(ArrayTypeNode n) {
-//        n.size.accept(this);
-//        if (n.type != null)
-//            n.type.accept(this);
-//    }
-
     // Statement Nodes
     ///////////////////////////////////////////////////////////////////////////////
 
 
     @Override
     public void visit(AssignmentNode n) {
-        n.left = (LocNode) reduceExpression(n.left);
-        lhsIsArray = n.left.array != null;
-        isTopBinaryExpression = true;
-//        if (lhsIsArray) {
-//
-//            LabelNode randomLabel = LabelNode.newLabel();
-//            currentStmts.add(currentStmts.toArray().length - 1, new StmtNode(randomLabel));
-//        }
-        n.expression = reduceExpression(n.expression);
-
+        n.left = reduceLocNode(n.left, false);
+        n.expression = reduceExpression(n.expression, n.left.isArray());
     }
 
     @Override
     public void visit(IfNode n) {
-        n.expression = reduceExpression(n.expression);
+        n.expression = reduceExpression(n.expression, true);
 
         LabelNode falseLabel = LabelNode.newLabel();
         LabelNode endLabel = (n.elseStatement != null) ? LabelNode.newLabel() : null;
@@ -137,7 +108,7 @@ public class IntermediateCodeGenerator implements ASTVisitor {
         emitLabel(startLabel);
 
         if (!(n.expression instanceof TrueNode)) {
-            n.expression = reduceExpression(n.expression);
+            n.expression = reduceExpression(n.expression, true);
             emitIfFalse(n.expression, endLabel);
         }
 
@@ -155,7 +126,7 @@ public class IntermediateCodeGenerator implements ASTVisitor {
         loopEndLabels.push(endLabel);
         emitLabel(startLabel);
         n.body.accept(this);
-        n.expression = reduceExpression(n.expression);
+        n.expression = reduceExpression(n.expression, true);
 
         emitIfTrue(n.expression, startLabel);
 //        emitLabel(endLabel);
@@ -178,19 +149,6 @@ public class IntermediateCodeGenerator implements ASTVisitor {
         }
     }
 
-    // Expression Nodes
-    ///////////////////////////////////////////////////////////////////////////////
-
-    @Override
-    public void visit(BinaryExpressionNode n) {
-        n.left = reduceExpression(n.left);
-        n.right = reduceExpression(n.right);
-    }
-
-    @Override
-    public void visit(UnaryNode n) {
-        n.right = reduceExpression(n.right);
-    }
 
     // Terminal Nodes
     ///////////////////////////////////////////////////////////////////////////////
@@ -202,99 +160,50 @@ public class IntermediateCodeGenerator implements ASTVisitor {
 
     @Override
     public void visit(BreakNode n) {
-
-//        LabelNode someLabel = LabelNode.newLabel();
-//        emitLabel(someLabel);
         emitGoto(loopEndLabels.peek());
     }
 
-    public ExpressionNode reduceExpression(ExpressionNode n) {
+    public ExpressionNode reduceExpression(ExpressionNode n, Boolean needSingleResult) {
         if (n instanceof BinaryExpressionNode)
-            return reduceBinaryExpression((BinaryExpressionNode) n);
+            return reduceBinaryExpression((BinaryExpressionNode) n, needSingleResult);
         if (n instanceof UnaryNode)
-            return reduceUnaryExpression((UnaryNode) n);
+            return reduceUnaryExpression((UnaryNode) n, needSingleResult);
         if (n instanceof LocNode)
-            return reduceLocNode((LocNode) n);
+            return reduceLocNode((LocNode) n, needSingleResult);
         if (n instanceof ParenthesisNode)
-            return reduceExpression(((ParenthesisNode) n).expression);
+            return reduceExpression(((ParenthesisNode) n).expression, needSingleResult);
         return n;
     }
 
-    public ExpressionNode reduceBinaryExpression(BinaryExpressionNode n) {
-        boolean prevIsTopBinaryExpression = isTopBinaryExpression;
-        isTopBinaryExpression = false;
-        boolean hasArray = false;
-        ExpressionNode left = reduceExpression(n.left);
-        ExpressionNode right = reduceExpression(n.right);
+    public ExpressionNode reduceBinaryExpression(BinaryExpressionNode n, Boolean needSingleResult) {
+        ExpressionNode left = reduceExpression(n.left, true);
+        ExpressionNode right = reduceExpression(n.right, true);
 
-        if (right instanceof LocNode) {
-            LocNode l = (LocNode) right;
-            if (l.array != null) {
-                TempNode temp = TempNode.newTemp();
-                LocNode tempLoc = new LocNode(temp);
-                emitAssignment(tempLoc, right);
-                right = tempLoc;
-                hasArray = true;
-                rhsIsArray = true;
-            }
+        if (needSingleResult) {
+            TempNode temp = TempNode.newTemp();
+            emitAssignment(temp, new BinaryExpressionNode(left, right, n.operator));
+            return temp;
         }
-
-        if (left instanceof LocNode) {
-            LocNode l = (LocNode) left;
-            if (l.array != null) {
-                TempNode temp = TempNode.newTemp();
-                LocNode tempLoc = new LocNode(temp);
-                emitAssignment(tempLoc, left);
-                left = tempLoc;
-                hasArray = true;
-                rhsIsArray = true;
-            }
-        }
-
-
-        if (prevIsTopBinaryExpression && !lhsIsArray && hasArray) {
-            n.left = left;
-            n.right = right;
-            return n;
-        }
-
-
-            n.left = left;
-            n.right = right;
-            return n;
-
-//        TempNode temp = TempNode.newTemp();
-//        LocNode loc = new LocNode(temp);
-//
-//        emitAssignment(loc, new BinaryExpressionNode(left, right, n.operator));
-//
-//        return loc;
+        return new BinaryExpressionNode(left, right, n.operator);
     }
 
-    public ExpressionNode reduceUnaryExpression(UnaryNode n) {
-        ExpressionNode right = reduceExpression(n.right);
-        if (n.op == null && !lhsIsArray) {
-            return right;
-        }
-
-        TempNode temp = TempNode.newTemp();
-        LocNode loc = new LocNode(temp);
-
-        emitAssignment(loc, new UnaryNode(n.op, right));
-        return loc;
+    public ExpressionNode reduceUnaryExpression(UnaryNode n, Boolean needSingleResult) {
+        return reduceExpression(n.right, needSingleResult);
     }
 
-public ExpressionNode reduceLocNode(LocNode n) {
-    if (n.array == null)
+public LocNode reduceLocNode(LocNode n, Boolean needSingleResult) {
+    if (!n.isArray())
         return n;
+    if (!n.array.isArray()) {
+        n.array.expression = reduceExpression(n.array.expression, true);
+    }
     if (n.array.array == null) {
 
-        n.array.expression = reduceExpression(n.array.expression);
+        n.array.expression = reduceExpression(n.array.expression, true);
 
         int size = n.getWidth();
         NumNode sizeNode = new NumNode(size);
-        TempNode temp = TempNode.newTemp();
-        LocNode byteOffset = new LocNode(temp);
+        TempNode byteOffset = TempNode.newTemp();
         emitAssignment(byteOffset, new BinaryExpressionNode(n.array.expression, sizeNode, "*"));
         n.array.expression = byteOffset;
         return n;
@@ -309,12 +218,11 @@ public ExpressionNode reduceLocNode(LocNode n) {
     int index = 0;
     for (ArrayLocNode a = n.array; a != null; a = a.array) {
         index++;
-        a.expression = reduceExpression(a.expression);
+        a.expression = reduceExpression(a.expression, true);
 
         if (index == depth) {
             if (prevLoc != null) {
-                TempNode temp = TempNode.newTemp();
-                LocNode combinedOffset = new LocNode(temp);
+                TempNode combinedOffset = TempNode.newTemp();
                 emitAssignment(combinedOffset,
                                new BinaryExpressionNode(prevLoc, a.expression, "+"));
                 prevLoc = combinedOffset;
@@ -327,14 +235,12 @@ public ExpressionNode reduceLocNode(LocNode n) {
                 stride *= type.getDimSize(i).num;
             }
 
-            TempNode temp = TempNode.newTemp();
-            LocNode currentOffset = new LocNode(temp);
+            TempNode currentOffset = TempNode.newTemp();
             emitAssignment(currentOffset,
                            new BinaryExpressionNode(a.expression, new NumNode(stride), "*"));
 
             if (prevLoc != null) {
-                temp = TempNode.newTemp();
-                LocNode combinedOffset = new LocNode(temp);
+                TempNode combinedOffset = TempNode.newTemp();
                 emitAssignment(combinedOffset,
                                new BinaryExpressionNode(prevLoc, currentOffset, "+"));
                 prevLoc = combinedOffset;
@@ -344,8 +250,7 @@ public ExpressionNode reduceLocNode(LocNode n) {
         }
     }
 
-    TempNode finalOffset = TempNode.newTemp();
-    LocNode byteOffset = new LocNode(finalOffset);
+    TempNode byteOffset = TempNode.newTemp();
     emitAssignment(byteOffset, new BinaryExpressionNode(prevLoc, width, "*"));
 
     n.array = new ArrayLocNode(null, byteOffset);

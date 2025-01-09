@@ -25,15 +25,12 @@ public class LocNode implements ExpressionNode, LineTrackingNode {
         return depth;
     }
 
-    public int getDimensionSize() {
-        if (array == null) {
-            return 0;
-        }
-        return this.id.getType().array.size.num;
-    }
-
     public int getWidth() {
         return this.id.getType().type.width;
+    }
+
+    public Boolean isArray() {
+        return this.array != null;
     }
 
     @Override
