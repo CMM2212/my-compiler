@@ -48,10 +48,10 @@ public class TypeChecker implements ASTVisitor {
         return ARITHMETIC_OPERATORS.contains(operator);
     }
 
-    private static TypeNode resolveResultingType(TypeNode left, TypeNode right) {
+    private static Type resolveResultingType(TypeNode left, TypeNode right) {
         if (left.type == Type.Float || right.type == Type.Float)
-            return new TypeNode(Type.Float);
-        return new TypeNode(left.type);
+            return Type.Float;
+        return left.type;
     }
 
     private static void validateNotArrayAssignment(TypeNode left, TypeNode right, int line) {
@@ -165,7 +165,7 @@ public class TypeChecker implements ASTVisitor {
 
         validateArrayAccess(n, declaredType);
 
-        n.setType(declaredType.type);
+        n.setType(declaredType);
     }
 
     @Override
@@ -189,7 +189,7 @@ public class TypeChecker implements ASTVisitor {
     @Override
     public void visit(UnaryNode n) {
         n.right.accept(this);
-        n.setType(n.right.getType());
+        n.setType(n.right);
 
         if (n.op.tag == Tag.NOT)
             validateNotOperator(n);
@@ -200,7 +200,7 @@ public class TypeChecker implements ASTVisitor {
     @Override
     public void visit(ParenthesisNode n) {
         n.expression.accept(this);
-        n.setType(n.expression.getType());
+        n.setType(n.expression);
     }
     @Override
     public void visit(FalseNode n) {
@@ -209,7 +209,7 @@ public class TypeChecker implements ASTVisitor {
 
     @Override
     public void visit(IdNode n) {
-        n.setType(env.getSymbol(n.w).type);
+        n.setType(env.getSymbol(n.w));
     }
 
     @Override
