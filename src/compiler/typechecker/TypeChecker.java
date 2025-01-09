@@ -13,22 +13,18 @@ import compiler.parser.ast.nodes.statements.*;
 import compiler.parser.ast.nodes.structures.ProgramNode;
 import compiler.parser.ast.nodes.terminals.*;
 import compiler.symbols.SymbolTable;
-import compiler.symbols.Symbol;
 
 import java.util.Set;
 
 public class TypeChecker implements ASTVisitor {
-    public Parser parser;
-    public ProgramNode program;
-    public SymbolTable env;
+    private SymbolTable env;
 
     private static final Set<String> LOGIC_OPERATORS = Set.of("&&", "||");
     private static final Set<String> COMPARISON_OPERATORS = Set.of("==", "!=", "<", "<=", ">", ">=");
     private static final Set<String> ARITHMETIC_OPERATORS = Set.of("+", "-", "*", "/");
 
     public TypeChecker(Parser parser) {
-        this.parser = parser;
-        program = parser.program;
+        ProgramNode program = parser.program;
         visit(program);
     }
 
@@ -56,13 +52,20 @@ public class TypeChecker implements ASTVisitor {
 
     private static void validateNotArrayAssignment(TypeNode left, TypeNode right, int line) {
         if (left.isArray() || right.isArray())
-            throw new TypeException("cannot assign arrays" , line);
+            throw new TypeException(
+                    """
+                    cannot assign arrays: attempted to assign '%s' to '%s'
+                    """.formatted(left, right),
+                    line);
     }
 
     private static void validateTypesMatchAssignment(TypeNode left, TypeNode right, int line) {
         if (left.type != right.type)
-            throw new TypeException("type mismatch: cannot assign '" + right + "' to '"
-                    + left + "'", line);
+            throw new TypeException(
+                    """
+                    type mismatch: cannot assign '%s' to '%s'
+                    """.formatted(right, left),
+                    line);
     }
 
     private static void validateArrayAccess(LocNode n, TypeNode declaredType) {
@@ -70,42 +73,63 @@ public class TypeChecker implements ASTVisitor {
         int accessedDepth = n.getDepth();
 
         if (declaredDepth < accessedDepth)
-            throw new TypeException("'" + n.id.w + "' cannot be accessed as a " + accessedDepth +
-                    " dimensional array; it is only a " + declaredDepth + " dimensional array", n.getLine());
+            throw new TypeException(
+                    """
+                    '%s' cannot be accessed as a %d dimensional array; it is only a %d dimensional array
+                    """.formatted(n.id.w, accessedDepth, declaredDepth),
+                    n.getLine());
         else if (declaredDepth > accessedDepth)
-            throw new TypeException("cannot access '" + n.id.w + "' as an array; it is type '" +
-                    declaredType + "'", n.getLine());
+            throw new TypeException(
+                    """
+                    '%s' cannot be accessed as a %d dimensional array; it is a %d dimensional array
+                    """.formatted(n.id.w, accessedDepth, declaredDepth),
+                     n.getLine());
     }
 
     private static void validateLogicOperator(TypeNode left, TypeNode right, BinaryExpressionNode n) {
         if (left.type != Type.Bool || right.type != Type.Bool)
-            throw new TypeException("logical operator '" + n.operator +
-                    "' expects boolean types, not '" + left + "' and '" + right + "'", n.getLine());
+            throw new TypeException(
+                    """
+                    logical operator '%s' expects boolean types, not '%s' and '%s'
+                    """.formatted(n.operator, left, right),
+                    n.getLine());
     }
 
     private static void validateComparisonOperator(TypeNode left, TypeNode right, BinaryExpressionNode n) {
         if (left.type != right.type)
-            throw new TypeException("comparison operator '" + n.operator +
-                    "' expects same types, not '" + left + "' and '" + right + "'", n.getLine());
+            throw new TypeException(
+                    """
+                    comparison operator '%s' expects same types, not '%s' and '%s'
+                    """.formatted(n.operator, left, right),
+                    n.getLine());
         n.setType(Type.Bool);
     }
 
     private static void validateArithmeticOperator(TypeNode left, TypeNode right, BinaryExpressionNode n) {
         if (!Type.numeric(left.type) || !Type.numeric(right.type))
-            throw new TypeException("arithmetic operator '" + n.operator +
-                    "' expects numeric types, not '" + left + "' and '" + right + "'", n.getLine());
+            throw new TypeException(
+                    """
+                    arithmetic operator '%s' expects numeric types, not '%s' and '%s'
+                    """.formatted(n.operator, left, right),
+                    n.getLine());
     }
 
     private static void validateNotOperator(UnaryNode n) {
         if (n.getType().type != Type.Bool)
-            throw new TypeException("'!' operator expects boolean type, not '" +
-                    n.getType() + "'", n.getLine());
+            throw new TypeException(
+                    """
+                    '!' operator expects boolean type, not '%s'
+                    """.formatted(n.getType()),
+                    n.getLine());
     }
 
     private static void validateNegationOperator(UnaryNode n) {
         if (!Type.numeric(n.getType().type))
-            throw new TypeException("unary '-' operator expects numeric type, not '" +
-                    n.getType() + "'", n.getLine());
+            throw new TypeException(
+                    """
+                    unary '-' operator expects numeric type, not '%s'
+                    """.formatted(n.getType()),
+                    n.getLine());
     }
 
     @Override
@@ -202,6 +226,7 @@ public class TypeChecker implements ASTVisitor {
         n.expression.accept(this);
         n.setType(n.expression);
     }
+
     @Override
     public void visit(FalseNode n) {
         n.setType(Type.Bool);
