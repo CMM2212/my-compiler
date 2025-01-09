@@ -129,12 +129,12 @@ public class Parser implements ASTVisitor {
     }
 
     /**
-     * type -> basic [array]
+     * type -> 'int' [array] | 'float' [array]
      */
     @Override
     public void visit(TypeNode n) {
-        n.type = new BasicNode();
-        n.type.accept(this);
+        n.type = (Type)look;
+        match(Tag.BASIC);
 
         if (look.tag == Tag.LBRACKET) {
             n.array = new ArrayTypeNode();
@@ -285,10 +285,7 @@ public class Parser implements ASTVisitor {
         n.setLine(line);
     }
 
-    // Expression Helper Methods
-    ///////////////////////////////////////////////////////////////////////////////
     // Expression Nodes
-    ///////////////////////////////////////////////////////////////////////////////
 
    public ExpressionNode parseExpression() {
        ExpressionNode n = parseFactor();
@@ -362,15 +359,6 @@ public class Parser implements ASTVisitor {
         match(Tag.LPAREN);
         n.expression = parseExpression();
         match(Tag.RPAREN);
-    }
-
-    /**
-     * basic -> 'int' | 'float'
-     */
-    @Override
-    public void visit(BasicNode n) {
-        n.type = (Type)look;
-        match(Tag.BASIC);
     }
 
     /**

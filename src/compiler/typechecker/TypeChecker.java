@@ -15,10 +15,16 @@ import compiler.parser.ast.nodes.terminals.*;
 import compiler.symbols.SymbolTable;
 import compiler.symbols.Symbol;
 
+import java.util.Set;
+
 public class TypeChecker implements ASTVisitor {
     public Parser parser;
     public ProgramNode program;
-    public SymbolTable env = null;
+    public SymbolTable env;
+
+    private static final Set<String> LOGIC_OPERATORS = Set.of("&&", "||");
+    private static final Set<String> COMPARISON_OPERATORS = Set.of("==", "!=", "<", "<=", ">", ">=");
+    private static final Set<String> ARITHMETIC_OPERATORS = Set.of("+", "-", "*", "/");
 
     public TypeChecker(Parser parser) {
         this.parser = parser;
@@ -26,17 +32,80 @@ public class TypeChecker implements ASTVisitor {
         visit(program);
     }
 
-    public Boolean isLogicOperator(String operator) {
-        return operator.equals("&&") || operator.equals("||");
+    public static Boolean isIntToFloatAssignment(TypeNode left, TypeNode right) {
+        return left.type == Type.Float && right.type == Type.Int;
     }
 
-    public Boolean isComparisonOperator(String operator) {
-        return operator.equals("==") || operator.equals("!=") || operator.equals("<") || operator.equals("<=") ||
-                operator.equals(">") || operator.equals(">=");
+    private static Boolean isLogicOperator(String operator) {
+        return LOGIC_OPERATORS.contains(operator);
     }
 
-    public Boolean isArithmeticOperator(String operator) {
-        return operator.equals("+") || operator.equals("-") || operator.equals("*") || operator.equals("/");
+    private static Boolean isComparisonOperator(String operator) {
+        return COMPARISON_OPERATORS.contains(operator);
+    }
+
+    private static Boolean isArithmeticOperator(String operator) {
+        return ARITHMETIC_OPERATORS.contains(operator);
+    }
+
+    private static TypeNode resolveResultingType(TypeNode left, TypeNode right) {
+        if (left.type == Type.Float || right.type == Type.Float)
+            return new TypeNode(Type.Float);
+        return new TypeNode(left.type);
+    }
+
+    private static void validateNotArrayAssignment(TypeNode left, TypeNode right, int line) {
+        if (left.isArray() || right.isArray())
+            throw new TypeException("cannot assign arrays" , line);
+    }
+
+    private static void validateTypesMatchAssignment(TypeNode left, TypeNode right, int line) {
+        if (left.type != right.type)
+            throw new TypeException("type mismatch: cannot assign '" + right + "' to '"
+                    + left + "'", line);
+    }
+
+    private static void validateArrayAccess(LocNode n, TypeNode declaredType) {
+        int declaredDepth = declaredType.getDepth();
+        int accessedDepth = n.getDepth();
+
+        if (declaredDepth < accessedDepth)
+            throw new TypeException("'" + n.id.w + "' cannot be accessed as a " + accessedDepth +
+                    " dimensional array; it is only a " + declaredDepth + " dimensional array", n.getLine());
+        else if (declaredDepth > accessedDepth)
+            throw new TypeException("cannot access '" + n.id.w + "' as an array; it is type '" +
+                    declaredType + "'", n.getLine());
+    }
+
+    private static void validateLogicOperator(TypeNode left, TypeNode right, BinaryExpressionNode n) {
+        if (left.type != Type.Bool || right.type != Type.Bool)
+            throw new TypeException("logical operator '" + n.operator +
+                    "' expects boolean types, not '" + left + "' and '" + right + "'", n.getLine());
+    }
+
+    private static void validateComparisonOperator(TypeNode left, TypeNode right, BinaryExpressionNode n) {
+        if (left.type != right.type)
+            throw new TypeException("comparison operator '" + n.operator +
+                    "' expects same types, not '" + left + "' and '" + right + "'", n.getLine());
+        n.setType(new TypeNode(Type.Bool));
+    }
+
+    private static void validateArithmeticOperator(TypeNode left, TypeNode right, BinaryExpressionNode n) {
+        if (!Type.numeric(left.type) || !Type.numeric(right.type))
+            throw new TypeException("arithmetic operator '" + n.operator +
+                    "' expects numeric types, not '" + left + "' and '" + right + "'", n.getLine());
+    }
+
+    private static void validateNotOperator(UnaryNode n) {
+        if (n.getType().type != Type.Bool)
+            throw new TypeException("'!' operator expects boolean type, not '" +
+                    n.getType() + "'", n.getLine());
+    }
+
+    private static void validateNegationOperator(UnaryNode n) {
+        if (!Type.numeric(n.getType().type))
+            throw new TypeException("unary '-' operator expects numeric type, not '" +
+                    n.getType() + "'", n.getLine());
     }
 
     @Override
@@ -47,53 +116,25 @@ public class TypeChecker implements ASTVisitor {
     @Override
     public void visit(BlockNode n) {
         env = n.table;
-        for (DeclNode decl : n.decls)
-            decl.accept(this);
         for (StatementNode stmt : n.statements)
             stmt.accept(this);
         env = env.prev;
     }
 
     @Override
-    public void visit(DeclNode n) {
-        n.type.accept(this);
-        n.id.accept(this);
-    }
-
-    @Override
-    public void visit(TypeNode n) {
-        n.type.accept(this);
-        if (n.array != null) {
-            n.array.accept(this);
-        }
-    }
-
-    @Override
-    public void visit(ArrayTypeNode n) {
-        n.size.accept(this);
-        if (n.type != null) {
-            n.type.accept(this);
-        }
-    }
-
-    @Override
     public void visit(AssignmentNode n) {
         n.left.accept(this);
-        TypeNode left = n.left.getType();
         n.expression.accept(this);
-        TypeNode rightTypeNode = n.expression.getType();
+        
+        TypeNode leftType = n.left.getType();
+        TypeNode rightType = n.expression.getType();
 
-        if (left.getDepth() != rightTypeNode.getDepth()) {
-            throw new TypeException("array dimensions do not match: cannot assign '" + rightTypeNode +
-                    "' = '" + left + "'" , n.getLine());
-        }
-        if (left.type.type == Type.Float && rightTypeNode.type.type == Type.Int) {
+        validateNotArrayAssignment(leftType, rightType, n.getLine());
+
+        if (isIntToFloatAssignment(leftType, rightType))
             return;
-        }
-        if (left.type.type != rightTypeNode.type.type) {
-            throw new TypeException("type mismatch: cannot assign '" + rightTypeNode + "' to '"
-                    + left + "'", n.getLine());
-        }
+
+        validateTypesMatchAssignment(leftType, rightType, n.getLine());
     }
 
     @Override
@@ -122,106 +163,27 @@ public class TypeChecker implements ASTVisitor {
         n.id.accept(this);
         TypeNode declaredType = n.id.getType();
 
-        // Count dimensions being accessed.
-        int dimensionsLeft = getDimensionsLeft(n, declaredType);
+        validateArrayAccess(n, declaredType);
 
-        // Create a new type node with the correct type and dimensions.
-        TypeNode newTypeNode = new TypeNode();
-        newTypeNode.type = declaredType.type; // Keep the base type.
-
-        // Attach remaining dimensions if any.
-        if (dimensionsLeft > 0) {
-            ArrayTypeNode currentArrayType = new ArrayTypeNode(); // Start the chain.
-            newTypeNode.array = currentArrayType; // Link the first dimension.
-
-            for (int i = 1; i < dimensionsLeft; i++) {
-                currentArrayType.type = new ArrayTypeNode(); // Create a new dimension.
-                currentArrayType = currentArrayType.type;    // Move to the next dimension.
-            }
-        }
-
-        n.setType(newTypeNode);
-        if (n.array != null) {
-            n.array.accept(this);
-        }
-    }
-
-    private static int getDimensionsLeft(LocNode n, TypeNode declaredType) {
-        int dimensionsAccessed = n.getDepth();
-        int dimensionsDeclared = declaredType.getDepth();
-        int dimensionsLeft = dimensionsDeclared - dimensionsAccessed;
-
-        // Check that dimensions accessed is not more than the declared array dimensions.
-        if (dimensionsLeft < 0) {
-            if (dimensionsDeclared == 0) {
-                throw new TypeException("'" + n.id.w +
-                        "' cannot be accessed as an array; it is type '" + declaredType + "'", n.getLine());
-            } else {
-                throw new TypeException("cannot access '" + n.id.w + "' as a " + dimensionsAccessed +
-                        " dimensional array; it is only a " + dimensionsDeclared + " dimensional array", n.getLine());
-            }
-        }
-        return dimensionsLeft;
-    }
-
-    @Override
-    public void visit(ArrayLocNode n) {
-        n.expression.accept(this);
-
-        TypeNode expressionType = n.expression.getType();
-        if (expressionType.type.type != Type.Int || expressionType.getDepth() > 0) {
-            throw new TypeException("array index must be an integer, not '" + n.expression.getType() + "'", n.getLine());
-        }
-
-        if (n.array != null) {
-            n.array.accept(this);
-        }
+        n.setType(new TypeNode(declaredType.type));
     }
 
     @Override
     public void visit(BinaryExpressionNode n) {
         n.left.accept(this);
-        TypeNode left = n.left.getType();
-        n.setType(left);
-        if (n.right == null) {
-            return;
-        }
         n.right.accept(this);
+
+        TypeNode left = n.left.getType();
         TypeNode right = n.right.getType();
 
-        Type leftType = left.type.type;
-        Type rightType = right.type.type;
+        n.setType(resolveResultingType(left, right));
 
-        if (left.getDepth() > 0 || right.getDepth() > 0) {
-            throw new TypeException("binary operator cannot be applied to an array", n.getLine());
-        }
-        if (rightType == Type.Float) {
-            n.setType(right);
-        } else if (leftType == Type.Float) {
-            n.setType(left);
-        }
-
-        if (isLogicOperator(n.operator)) {
-            if (leftType != Type.Bool || rightType != Type.Bool) {
-                throw new TypeException("logical operator '" + n.operator +
-                        "' expects boolean types, not '" + left + "' and '" + right + "'", n.getLine());
-            }
-        } else if (isComparisonOperator(n.operator)) {
-            if (leftType != rightType) {
-                throw new TypeException("comparison operator '" + n.operator +
-                        "' expects same types, not '" + left + "' and '" + right + "'", n.getLine());
-            }
-            // Set type of node to be boolean because comparisons return a boolean.
-            TypeNode newBoolType = new TypeNode();
-            newBoolType.type = new BasicNode();
-            newBoolType.type.type = Type.Bool;
-            n.setType(newBoolType);
-        } else if (isArithmeticOperator(n.operator)) {
-            if (!Type.numeric(leftType) || !Type.numeric(rightType)) {
-                throw new TypeException("arithmetic operator '" + n.operator +
-                        "' expects numeric types, not '" + left + "' and '" + right + "'", n.getLine());
-            }
-        }
+        if (isLogicOperator(n.operator))
+            validateLogicOperator(left, right, n);
+        else if (isComparisonOperator(n.operator))
+            validateComparisonOperator(left, right, n);
+        else if (isArithmeticOperator(n.operator))
+            validateArithmeticOperator(left, right, n);
     }
 
     @Override
@@ -229,25 +191,10 @@ public class TypeChecker implements ASTVisitor {
         n.right.accept(this);
         n.setType(n.right.getType());
 
-        if (n.op == null) {
-            return;
-        }
-
-        if (n.getType().getDepth() > 0) {
-            throw new TypeException("unary operator cannot be applied to an array", n.getLine());
-        }
-
-        if (n.op.tag == Tag.NOT) {
-            if (n.getType().type.type != Type.Bool) {
-                throw new TypeException("'!' operator expects boolean type, not '" +
-                        n.getType() + "'", n.getLine());
-            }
-        } else if (n.op.tag == Tag.SUB) {
-            if (!Type.numeric(n.getType().type.type)) {
-                throw new TypeException("unary '-' operator expects numeric type, not '" +
-                        n.getType() + "'", n.getLine());
-            }
-        }
+        if (n.op.tag == Tag.NOT)
+            validateNotOperator(n);
+        else if (n.op.tag == Tag.SUB)
+            validateNegationOperator(n);
     }
 
     @Override
@@ -257,43 +204,26 @@ public class TypeChecker implements ASTVisitor {
     }
     @Override
     public void visit(FalseNode n) {
-        TypeNode newType = new TypeNode();
-        newType.type = new BasicNode();
-        newType.type.type = Type.Bool;
-        n.setType(newType);
+        n.setType(new TypeNode(Type.Bool));
     }
 
     @Override
     public void visit(IdNode n) {
-        Symbol s = env.getSymbol(n.w);
-        if (s == null) {
-            // Parser should have already caught this.
-            throw new SyntaxException("variable '" + n.id + "' not declared");
-        }
-        n.setType(s.type);
+        n.setType(env.getSymbol(n.w).type);
     }
 
     @Override
     public void visit(NumNode n) {
-        TypeNode newType = new TypeNode();
-        newType.type = new BasicNode();
-        newType.type.type = Type.Int;
-        n.setType(newType);
+        n.setType(new TypeNode(Type.Int));
     }
 
     @Override
     public void visit(RealNode n) {
-        TypeNode newType = new TypeNode();
-        newType.type = new BasicNode();
-        newType.type.type = Type.Float;
-        n.setType(newType);
+        n.setType(new TypeNode(Type.Float));
     }
 
     @Override
     public void visit(TrueNode n) {
-        TypeNode newType = new TypeNode();
-        newType.type = new BasicNode();
-        newType.type.type = Type.Bool;
-        n.setType(newType);
+        n.setType(new TypeNode(Type.Bool));
     }
 }

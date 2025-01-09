@@ -33,7 +33,7 @@ public class LocNode implements ExpressionNode, LineTrackingNode {
     }
 
     public int getWidth() {
-        return this.id.getType().type.type.width;
+        return this.id.getType().type.width;
     }
 
     @Override

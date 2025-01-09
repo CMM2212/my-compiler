@@ -169,7 +169,7 @@ public class PrettyPrinter implements ASTVisitor {
 
     @Override
     public void visit(TypeNode n) {
-        n.type.accept(this);
+        print(n.type.toString());
         if (n.array != null)
             n.array.accept(this);
     }
@@ -306,11 +306,6 @@ public class PrettyPrinter implements ASTVisitor {
         print("(");
         n.expression.accept(this);
         print(")");
-    }
-
-    @Override
-    public void visit(BasicNode n) {
-        print(n.type.toString());
     }
 
     @Override

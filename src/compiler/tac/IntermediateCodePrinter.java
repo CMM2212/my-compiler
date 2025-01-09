@@ -112,30 +112,30 @@ public class IntermediateCodePrinter implements ASTVisitor {
         }
     }
 
-    @Override
-    public void visit(DeclNode n) {
-        n.type.accept(this);
-        print(" ");
-        n.id.accept(this);
-        //println(" ;");
-        println("");
-    }
-
-    @Override
-    public void visit(TypeNode n) {
-        n.type.accept(this);
-        if (n.array != null)
-            n.array.accept(this);
-    }
-
-    @Override
-    public void visit(ArrayTypeNode n) {
-        print("[");
-        n.size.accept(this);
-        print("]");
-        if (n.type != null)
-            n.type.accept(this);
-    }
+//    @Override
+//    public void visit(DeclNode n) {
+//        n.type.accept(this);
+//        print(" ");
+//        n.id.accept(this);
+//        //println(" ;");
+//        println("");
+//    }
+//
+//    @Override
+//    public void visit(TypeNode n) {
+//        n.type.accept(this);
+//        if (n.array != null)
+//            n.array.accept(this);
+//    }
+//
+//    @Override
+//    public void visit(ArrayTypeNode n) {
+//        print("[");
+//        n.size.accept(this);
+//        print("]");
+//        if (n.type != null)
+//            n.type.accept(this);
+//    }
 
     // Statement Nodes
     ///////////////////////////////////////////////////////////////////////////////
@@ -233,11 +233,6 @@ public class IntermediateCodePrinter implements ASTVisitor {
         print("(");
         n.expression.accept(this);
         print(")");
-    }
-
-    @Override
-    public void visit(BasicNode n) {
-        print(n.type.toString());
     }
 
     @Override

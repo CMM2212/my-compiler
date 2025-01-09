@@ -32,7 +32,6 @@ public interface ASTVisitor {
     default void visit(UnaryNode n){};
     default void visit(ParenthesisNode n){};
 
-    default void visit(BasicNode n){};
     default void visit(BreakNode n){};
     default void visit(FalseNode n){};
     default void visit(IdNode n){};

@@ -64,25 +64,25 @@ public class IntermediateCodeGenerator implements ASTVisitor {
         isTopBinaryExpression = previousIsTopBinaryExpression;
     }
 
-    @Override
-    public void visit(DeclNode n) {
-        n.type.accept(this);
-        n.id.accept(this);
-    }
-
-    @Override
-    public void visit(TypeNode n) {
-        n.type.accept(this);
-        if (n.array != null)
-            n.array.accept(this);
-    }
-
-    @Override
-    public void visit(ArrayTypeNode n) {
-        n.size.accept(this);
-        if (n.type != null)
-            n.type.accept(this);
-    }
+//    @Override
+//    public void visit(DeclNode n) {
+//        n.type.accept(this);
+//        n.id.accept(this);
+//    }
+//
+//    @Override
+//    public void visit(TypeNode n) {
+//        n.type.accept(this);
+//        if (n.array != null)
+//            n.array.accept(this);
+//    }
+//
+//    @Override
+//    public void visit(ArrayTypeNode n) {
+//        n.size.accept(this);
+//        if (n.type != null)
+//            n.type.accept(this);
+//    }
 
     // Statement Nodes
     ///////////////////////////////////////////////////////////////////////////////
