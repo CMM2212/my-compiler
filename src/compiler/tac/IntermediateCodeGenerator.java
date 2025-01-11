@@ -17,14 +17,7 @@ import java.util.Stack;
 public class IntermediateCodeGenerator implements ASTVisitor {
     public ProgramNode program = null;
     public List<StatementNode> currentStatements;
-    int statementIndex = 0;
-
-    boolean lhsIsArray = false; //  If LHS is array, right must be unary.
-    boolean rhsIsArray = false; //  Tracking to mimic book output
-    boolean isTopBinaryExpression = false;
-
-    Stack<LabelNode> loopEndLabels = new Stack<>();
-    LabelNode previousLabel = null;
+    public Stack<LabelNode> loopEndLabels = new Stack<>();
 
     public IntermediateCodeGenerator(TypeChecker typeChecker) {
         typeChecker.program.accept(this);
@@ -43,24 +36,11 @@ public class IntermediateCodeGenerator implements ASTVisitor {
 
     @Override
     public void visit(BlockNode n) {
-        int previousIndex = statementIndex;
-        boolean previousIsArray = lhsIsArray;
-        boolean previousRhsIsArray = rhsIsArray;
-        boolean previousIsTopBinaryExpression = isTopBinaryExpression;
-        LabelNode previousPreviousLabel = previousLabel;
-        previousLabel = null;
 
         for (StatementNode statement : n.statements) {
             statement.accept(this);
             currentStatements.add(statement);
         }
-
-        previousLabel = previousPreviousLabel;
-        n.statements = currentStatements;
-        statementIndex = previousIndex;
-        lhsIsArray = previousIsArray;
-        rhsIsArray = previousRhsIsArray;
-        isTopBinaryExpression = previousIsTopBinaryExpression;
     }
 
     // Statement Nodes
@@ -101,9 +81,8 @@ public class IntermediateCodeGenerator implements ASTVisitor {
 
     @Override
     public void visit(WhileNode n) {
-        LabelNode startLabel = previousLabel != null ? previousLabel : LabelNode.newLabel();
+        LabelNode startLabel = LabelNode.newLabel();
         LabelNode endLabel = LabelNode.newLabel();
-        previousLabel = endLabel;
         loopEndLabels.push(endLabel);
         emitLabel(startLabel);
 
@@ -120,16 +99,14 @@ public class IntermediateCodeGenerator implements ASTVisitor {
 
     @Override
     public void visit(DoWhileNode n) {
-        LabelNode startLabel = previousLabel != null ? previousLabel : LabelNode.newLabel();
+        LabelNode startLabel =LabelNode.newLabel();
         LabelNode endLabel = LabelNode.newLabel();
-        previousLabel = endLabel;
         loopEndLabels.push(endLabel);
         emitLabel(startLabel);
         n.body.accept(this);
         n.expression = reduceExpression(n.expression, true);
 
         emitIfTrue(n.expression, startLabel);
-//        emitLabel(endLabel);
         loopEndLabels.pop();
     }
 
@@ -191,71 +168,74 @@ public class IntermediateCodeGenerator implements ASTVisitor {
         return reduceExpression(n.right, needSingleResult);
     }
 
-public LocNode reduceLocNode(LocNode n, Boolean needSingleResult) {
-    if (!n.isArray())
-        return n;
-    if (!n.array.isArray()) {
-        n.array.expression = reduceExpression(n.array.expression, true);
-    }
-    if (n.array.array == null) {
+    public LocNode reduceLocNode(LocNode n, Boolean needSingleResult) {
+        if (!n.isArray())
+            return n;
 
-        n.array.expression = reduceExpression(n.array.expression, true);
+        List<ExpressionNode> reducedDimensions = reduceDimensions(n);
+        ExpressionNode totalOffset = null;
 
-        int size = n.getWidth();
-        NumNode sizeNode = new NumNode(size);
-        TempNode byteOffset = TempNode.newTemp();
-        emitAssignment(byteOffset, new BinaryExpressionNode(n.array.expression, sizeNode, "*"));
-        n.array.expression = byteOffset;
-        return n;
-    }
-
-    NumNode width = new NumNode(n.getWidth());
-    TypeNode type = n.id.getType();
-    int depth = type.getDepth();
-
-    LocNode prevLoc = null;
-
-    int index = 0;
-    for (ArrayLocNode a = n.array; a != null; a = a.array) {
-        index++;
-        a.expression = reduceExpression(a.expression, true);
-
-        if (index == depth) {
-            if (prevLoc != null) {
-                TempNode combinedOffset = TempNode.newTemp();
-                emitAssignment(combinedOffset,
-                               new BinaryExpressionNode(prevLoc, a.expression, "+"));
-                prevLoc = combinedOffset;
-            } else {
-                prevLoc = (LocNode) a.expression;
-            }
-        } else {
-            int stride = 1;
-            for (int i = index; i < depth; i++) {
-                stride *= type.getDimSize(i).num;
-            }
-
-            TempNode currentOffset = TempNode.newTemp();
-            emitAssignment(currentOffset,
-                           new BinaryExpressionNode(a.expression, new NumNode(stride), "*"));
-
-            if (prevLoc != null) {
-                TempNode combinedOffset = TempNode.newTemp();
-                emitAssignment(combinedOffset,
-                               new BinaryExpressionNode(prevLoc, currentOffset, "+"));
-                prevLoc = combinedOffset;
-            } else {
-                prevLoc = currentOffset;
-            }
+        for (int i = 0; i < reducedDimensions.size(); i++) {
+            ExpressionNode additionalOffset;
+            additionalOffset = calculateOffset(n, i, reducedDimensions);
+            totalOffset = addAdditionalOffset(totalOffset, additionalOffset);
         }
+
+        LocNode finalLoc = createFinalLoc(n, totalOffset);
+
+        if (needSingleResult) {
+            TempNode temp = TempNode.newTemp();
+            emitAssignment(temp, finalLoc);
+            return temp;
+        } else {
+            return finalLoc;
+        }
+}
+
+    private LocNode createFinalLoc(LocNode n, ExpressionNode totalOffset) {
+        TempNode finalOffset = TempNode.newTemp();
+        emitAssignment(finalOffset, new BinaryExpressionNode(totalOffset, n.getWidthNumNode(), "*"));
+        return new LocNode(n.id, new ArrayLocNode(null, finalOffset));
     }
 
-    TempNode byteOffset = TempNode.newTemp();
-    emitAssignment(byteOffset, new BinaryExpressionNode(prevLoc, width, "*"));
+    private ExpressionNode addAdditionalOffset(ExpressionNode totalOffset, ExpressionNode additionalOffset) {
+        if (totalOffset == null) {
+            totalOffset = additionalOffset;
+        } else {
+            TempNode temp = TempNode.newTemp();
+            emitAssignment(temp, new BinaryExpressionNode(totalOffset, additionalOffset, "+"));
+            totalOffset = temp;
+        }
+        return totalOffset;
+    }
 
-    n.array = new ArrayLocNode(null, byteOffset);
-    return n;
-}
+    private ExpressionNode calculateOffset(LocNode n, int i, List<ExpressionNode> reducedDimensions) {
+        ExpressionNode dimension = reducedDimensions.get(i);
+        ExpressionNode additionalOffset;
+        if (i == reducedDimensions.size() - 1) {
+            additionalOffset = dimension;
+        } else {
+            TempNode temp = TempNode.newTemp();
+            NumNode stride = new NumNode(calculateStride(n.id.getType(), i));
+            emitAssignment(temp, new BinaryExpressionNode(dimension, stride, "*"));
+            additionalOffset = temp;
+        }
+        return additionalOffset;
+    }
+
+    private static int calculateStride(TypeNode type, int dimension) {
+        int stride = 1;
+        for (int i = dimension + 1; i < type.getDepth(); i++)
+            stride *= type.getDimSize(i).num;
+        return stride;
+    }
+
+    private List<ExpressionNode> reduceDimensions(LocNode n) {
+        List<ExpressionNode> reducedDimensions = new ArrayList<>();
+        for (ArrayLocNode a = n.array; a != null; a = a.array)
+            reducedDimensions.add(reduceExpression(a.expression, true));
+        return reducedDimensions;
+    }
 
     public void emitAssignment(LocNode left, ExpressionNode right) {
         AssignmentNode assign = new AssignmentNode();

@@ -4,6 +4,7 @@ import compiler.parser.ast.ASTVisitor;
 import compiler.parser.ast.nodes.ExpressionNode;
 import compiler.parser.ast.nodes.LineTrackingNode;
 import compiler.parser.ast.nodes.terminals.IdNode;
+import compiler.parser.ast.nodes.terminals.NumNode;
 
 public class LocNode implements ExpressionNode, LineTrackingNode {
     public IdNode id;
@@ -11,8 +12,9 @@ public class LocNode implements ExpressionNode, LineTrackingNode {
 
     public LocNode() {}
 
-    public LocNode(IdNode id) {
+    public LocNode(IdNode id, ArrayLocNode array) {
         this.id = id;
+        this.array = array;
     }
 
     public int getDepth() {
@@ -25,8 +27,8 @@ public class LocNode implements ExpressionNode, LineTrackingNode {
         return depth;
     }
 
-    public int getWidth() {
-        return this.id.getType().type.width;
+    public NumNode getWidthNumNode() {
+        return new NumNode(this.id.getType().type.width);
     }
 
     public Boolean isArray() {
