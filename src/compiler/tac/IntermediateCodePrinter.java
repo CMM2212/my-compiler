@@ -3,7 +3,6 @@ package compiler.tac;
 import compiler.parser.Parser;
 import compiler.parser.ast.ASTVisitor;
 import compiler.parser.ast.nodes.*;
-import compiler.parser.ast.nodes.declarations.*;
 import compiler.parser.ast.nodes.expressions.*;
 import compiler.parser.ast.nodes.expressions.operations.*;
 import compiler.parser.ast.nodes.statements.*;
@@ -92,14 +91,6 @@ public class IntermediateCodePrinter implements ASTVisitor {
         }
     }
 
-    void insertSpaceBetweenControlStatements(StatementNode n) {
-        boolean isControlStatement = n instanceof IfNode || n instanceof WhileNode ||
-                n instanceof DoWhileNode;
-    }
-
-    // Main Nodes
-    ///////////////////////////////////////////////////////////////////////////////
-
     @Override
     public void visit(ProgramNode n) {
         n.block.accept(this);
@@ -112,46 +103,11 @@ public class IntermediateCodePrinter implements ASTVisitor {
         }
     }
 
-//    @Override
-//    public void visit(DeclNode n) {
-//        n.type.accept(this);
-//        print(" ");
-//        n.id.accept(this);
-//        //println(" ;");
-//        println("");
-//    }
-//
-//    @Override
-//    public void visit(TypeNode n) {
-//        n.type.accept(this);
-//        if (n.array != null)
-//            n.array.accept(this);
-//    }
-//
-//    @Override
-//    public void visit(ArrayTypeNode n) {
-//        print("[");
-//        n.size.accept(this);
-//        print("]");
-//        if (n.type != null)
-//            n.type.accept(this);
-//    }
-
-    // Statement Nodes
-    ///////////////////////////////////////////////////////////////////////////////
-
-//    @Override
-//    public void visit(StatementNode n) {
-//        insertSpaceBetweenControlStatements(n);
-//        n.accept(this);
-//    }
-
     @Override
     public void visit(AssignmentNode n) {
         n.left.accept(this);
         print("=");
         n.expression.accept(this);
-        //println(" ;");
         println("");
     }
 
@@ -177,7 +133,7 @@ public class IntermediateCodePrinter implements ASTVisitor {
 
     @Override
     public void visit(IfFalseNode n) {
-        print(" ifFalse ");
+        print(" iffalse ");
         n.expression.accept(this);
     }
 
@@ -207,9 +163,6 @@ public class IntermediateCodePrinter implements ASTVisitor {
         }
     }
 
-    // Expression Nodes
-    ///////////////////////////////////////////////////////////////////////////////
-
     @Override
     public void visit(BinaryExpressionNode n) {
         n.left.accept(this);
@@ -224,9 +177,6 @@ public class IntermediateCodePrinter implements ASTVisitor {
         }
         n.right.accept(this);
     }
-
-    // Terminal Nodes
-    ///////////////////////////////////////////////////////////////////////////////
 
     @Override
     public void visit(ParenthesisNode n) {
@@ -270,7 +220,6 @@ public class IntermediateCodePrinter implements ASTVisitor {
         print(" goto ");
         print (n.label.id);
         println("");
-
     }
 
     @Override
@@ -281,7 +230,5 @@ public class IntermediateCodePrinter implements ASTVisitor {
     @Override
     public void visit(TempNode n) {
         print(" " + n.id + " ");
-
     }
-
 }

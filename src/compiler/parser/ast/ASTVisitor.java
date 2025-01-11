@@ -5,6 +5,8 @@ import compiler.parser.ast.nodes.declarations.DeclNode;
 import compiler.parser.ast.nodes.declarations.TypeNode;
 import compiler.parser.ast.nodes.expressions.ArrayLocNode;
 import compiler.parser.ast.nodes.expressions.LocNode;
+import compiler.parser.ast.nodes.expressions.ParenthesisNode;
+import compiler.parser.ast.nodes.expressions.TempNode;
 import compiler.parser.ast.nodes.expressions.operations.BinaryExpressionNode;
 import compiler.parser.ast.nodes.expressions.operations.UnaryNode;
 import compiler.parser.ast.nodes.statements.*;

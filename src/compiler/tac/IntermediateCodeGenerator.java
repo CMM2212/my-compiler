@@ -24,10 +24,6 @@ public class IntermediateCodeGenerator implements ASTVisitor {
         program = typeChecker.program;
     }
 
-
-    // Main Nodes
-    ///////////////////////////////////////////////////////////////////////////////
-
     @Override
     public void visit(ProgramNode n) {
         currentStatements = new ArrayList<>();
@@ -36,40 +32,31 @@ public class IntermediateCodeGenerator implements ASTVisitor {
 
     @Override
     public void visit(BlockNode n) {
-
-        for (StatementNode statement : n.statements) {
+        for (StatementNode statement : n.statements)
             statement.accept(this);
-            currentStatements.add(statement);
-        }
     }
-
-    // Statement Nodes
-    ///////////////////////////////////////////////////////////////////////////////
-
 
     @Override
     public void visit(AssignmentNode n) {
         n.left = reduceLocNode(n.left, false);
         n.expression = reduceExpression(n.expression, n.left.isArray());
+        emitAssignment(n.left, n.expression);
     }
 
     @Override
     public void visit(IfNode n) {
-        n.expression = reduceExpression(n.expression, true);
+        n.expression = reduceExpression(n.expression, false);
 
         LabelNode falseLabel = LabelNode.newLabel();
+        // End label only necessary if there is an else statement.
         LabelNode endLabel = (n.elseStatement != null) ? LabelNode.newLabel() : null;
 
         emitIfFalse(n.expression, falseLabel);
 
-        if (n.elseStatement != null)
-            LabelNode.newLabel();
-
         n.thenStatement.accept(this);
 
-        if (n.elseStatement != null) {
+        if (n.elseStatement != null)
             emitGoto(endLabel);
-        }
 
         emitLabel(falseLabel);
 
@@ -83,57 +70,37 @@ public class IntermediateCodeGenerator implements ASTVisitor {
     public void visit(WhileNode n) {
         LabelNode startLabel = LabelNode.newLabel();
         LabelNode endLabel = LabelNode.newLabel();
-        loopEndLabels.push(endLabel);
         emitLabel(startLabel);
 
+        // If it is a true literal, we don't need a false check.
         if (!(n.expression instanceof TrueNode)) {
-            n.expression = reduceExpression(n.expression, true);
+            n.expression = reduceExpression(n.expression, false);
             emitIfFalse(n.expression, endLabel);
         }
 
+        loopEndLabels.push(endLabel);
         n.body.accept(this);
+        loopEndLabels.pop();
+
         emitGoto(startLabel);
         emitLabel(endLabel);
-        loopEndLabels.pop();
     }
 
     @Override
     public void visit(DoWhileNode n) {
         LabelNode startLabel =LabelNode.newLabel();
         LabelNode endLabel = LabelNode.newLabel();
-        loopEndLabels.push(endLabel);
         emitLabel(startLabel);
+
+        loopEndLabels.push(endLabel);
         n.body.accept(this);
-        n.expression = reduceExpression(n.expression, true);
+        loopEndLabels.pop();
+
+        n.expression = reduceExpression(n.expression, false);
 
         emitIfTrue(n.expression, startLabel);
-        loopEndLabels.pop();
     }
 
-    @Override
-    public void visit(LocNode n) {
-        n.id.accept(this);
-        if (n.array != null) {
-            n.array.accept(this);
-        }
-    }
-
-    @Override
-    public void visit(ArrayLocNode n) {
-        n.expression.accept(this);
-        if (n.array != null) {
-            n.array.accept(this);
-        }
-    }
-
-
-    // Terminal Nodes
-    ///////////////////////////////////////////////////////////////////////////////
-
-    @Override
-    public void visit(ParenthesisNode n) {
-        n.expression.accept(this);
-    }
 
     @Override
     public void visit(BreakNode n) {
@@ -156,12 +123,14 @@ public class IntermediateCodeGenerator implements ASTVisitor {
         ExpressionNode left = reduceExpression(n.left, true);
         ExpressionNode right = reduceExpression(n.right, true);
 
+        // If it needs to be a single result, store the binary expression as a temporary variable.
+        BinaryExpressionNode result = new BinaryExpressionNode(left, right, n.operator);
         if (needSingleResult) {
             TempNode temp = TempNode.newTemp();
-            emitAssignment(temp, new BinaryExpressionNode(left, right, n.operator));
+            emitAssignment(temp, result);
             return temp;
         }
-        return new BinaryExpressionNode(left, right, n.operator);
+        return result;
     }
 
     public ExpressionNode reduceUnaryExpression(UnaryNode n, Boolean needSingleResult) {
@@ -169,20 +138,28 @@ public class IntermediateCodeGenerator implements ASTVisitor {
     }
 
     public LocNode reduceLocNode(LocNode n, Boolean needSingleResult) {
+        // If it's not an array, just return the loc node which is a single identifier.
         if (!n.isArray())
             return n;
 
+        // For each dimensional accessor, reduce the expression and store as a list.
+        // (e.g. a[1][1+2][3] -> [1, t1, 3])
         List<ExpressionNode> reducedDimensions = reduceDimensions(n);
-        ExpressionNode totalOffset = null;
 
+        // Go through each dimension and calculate the accumulated offset.
+        ExpressionNode totalOffset = null;
         for (int i = 0; i < reducedDimensions.size(); i++) {
-            ExpressionNode additionalOffset;
-            additionalOffset = calculateOffset(n, i, reducedDimensions);
+            // Calculate the offset of the dimension based on the stride.
+            ExpressionNode additionalOffset = calculateOffset(n, i, reducedDimensions);
+            // Add this additional offset to the total offset.
             totalOffset = addAdditionalOffset(totalOffset, additionalOffset);
         }
 
+        // Create a final loc node that uses the initial identifier and the final offset value to access it.
         LocNode finalLoc = createFinalLoc(n, totalOffset);
 
+        // If it requires a single result, store the array access as a temporary variable.
+        // (e.g. a[100] = a[10] -> t1 = a[10]; a[100] = t1)
         if (needSingleResult) {
             TempNode temp = TempNode.newTemp();
             emitAssignment(temp, finalLoc);
@@ -194,13 +171,17 @@ public class IntermediateCodeGenerator implements ASTVisitor {
 
     private LocNode createFinalLoc(LocNode n, ExpressionNode totalOffset) {
         TempNode finalOffset = TempNode.newTemp();
+        // Multiply the total offset by the width (bytes) of the type to get the final offset value.
         emitAssignment(finalOffset, new BinaryExpressionNode(totalOffset, n.getWidthNumNode(), "*"));
+        // Create a new loc node with the final offset, n[finalOffset].
         return new LocNode(n.id, new ArrayLocNode(null, finalOffset));
     }
 
     private ExpressionNode addAdditionalOffset(ExpressionNode totalOffset, ExpressionNode additionalOffset) {
+        // If it's the first offset, initialize the total offset with this additional offset.
         if (totalOffset == null) {
             totalOffset = additionalOffset;
+        // Otherwise, add the additional offset to the total offset.
         } else {
             TempNode temp = TempNode.newTemp();
             emitAssignment(temp, new BinaryExpressionNode(totalOffset, additionalOffset, "+"));
@@ -210,10 +191,14 @@ public class IntermediateCodeGenerator implements ASTVisitor {
     }
 
     private ExpressionNode calculateOffset(LocNode n, int i, List<ExpressionNode> reducedDimensions) {
+        // Get the dimension expression.
+        // (e.g. a[10][20] would return 10 for i = 0 and 20 for i = 1)
         ExpressionNode dimension = reducedDimensions.get(i);
         ExpressionNode additionalOffset;
+        // If it's the last dimension, you don't need to calculate the stride because it's 1.
         if (i == reducedDimensions.size() - 1) {
             additionalOffset = dimension;
+        // Otherwise, calculate stride and multiply it by the dimension expression.
         } else {
             TempNode temp = TempNode.newTemp();
             NumNode stride = new NumNode(calculateStride(n.id.getType(), i));
@@ -225,6 +210,7 @@ public class IntermediateCodeGenerator implements ASTVisitor {
 
     private static int calculateStride(TypeNode type, int dimension) {
         int stride = 1;
+        // Excluding the first dimension, find the product of the declared sizes of the dimensions.
         for (int i = dimension + 1; i < type.getDepth(); i++)
             stride *= type.getDimSize(i).num;
         return stride;
@@ -232,6 +218,7 @@ public class IntermediateCodeGenerator implements ASTVisitor {
 
     private List<ExpressionNode> reduceDimensions(LocNode n) {
         List<ExpressionNode> reducedDimensions = new ArrayList<>();
+        // Traverse through each dimension and reduce the expression, and reduce the expression.
         for (ArrayLocNode a = n.array; a != null; a = a.array)
             reducedDimensions.add(reduceExpression(a.expression, true));
         return reducedDimensions;

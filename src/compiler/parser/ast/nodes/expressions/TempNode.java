@@ -1,9 +1,9 @@
-package compiler.parser.ast.nodes.terminals;
+package compiler.parser.ast.nodes.expressions;
 
 import compiler.lexer.Tag;
 import compiler.lexer.tokens.Word;
 import compiler.parser.ast.ASTVisitor;
-import compiler.parser.ast.nodes.expressions.LocNode;
+import compiler.parser.ast.nodes.terminals.IdNode;
 
 public class TempNode extends LocNode {
     public static int num = 0;

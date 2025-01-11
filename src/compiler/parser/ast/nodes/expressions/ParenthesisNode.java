@@ -1,10 +1,9 @@
-package compiler.parser.ast.nodes.terminals;
+package compiler.parser.ast.nodes.expressions;
 
 import compiler.parser.ast.ASTVisitor;
 import compiler.parser.ast.nodes.ExpressionNode;
-import compiler.parser.ast.nodes.TerminalNode;
 
-public class ParenthesisNode implements TerminalNode {
+public class ParenthesisNode implements ExpressionNode {
     public ExpressionNode expression;
 
     public ParenthesisNode() {
