@@ -325,10 +325,10 @@ public class Parser implements ASTVisitor {
     public void visit(UnaryNode n) {
         int line = lexer.getCurrentLine();
 
-        n.op = look;
+        n.operator = look;
         match(look.tag);
 
-        n.right = parseFactor();
+        n.expression = parseFactor();
 
         n.setLine(line);
     }
@@ -377,7 +377,7 @@ public class Parser implements ASTVisitor {
     @Override
     public void visit(IdNode n) {
         n.id = look.toString();
-        n.w = (Word)look;
+        n.word = (Word)look;
         match(Tag.ID);
     }
 

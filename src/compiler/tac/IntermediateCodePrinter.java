@@ -172,10 +172,10 @@ public class IntermediateCodePrinter implements ASTVisitor {
 
     @Override
     public void visit(UnaryNode n) {
-        if (n.op != null ) {
-            print(n.op.toString());
+        if (n.operator != null ) {
+            print(n.operator.toString());
         }
-        n.right.accept(this);
+        n.expression.accept(this);
     }
 
     @Override

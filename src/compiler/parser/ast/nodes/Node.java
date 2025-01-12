@@ -17,7 +17,7 @@ public interface Node {
      * the appropriate method on itself to process this node. This allows for the
      * visitor to traverse the AST.
      *
-     * @param v The visitor that will process this node.
+     * @param visitor The visitor that will process this node.
      */
-    void accept(ASTVisitor v);
+    void accept(ASTVisitor visitor);
 }

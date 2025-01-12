@@ -8,11 +8,21 @@ public class ArrayTypeNode extends TypeNode {
     public ArrayTypeNode type;
     public NumNode size;
 
+    /**
+     * Creates an empty ArrayTypeNode.
+     *
+     * After it is constructed, the type and size fields should be set to the appropriate values.
+     */
     public ArrayTypeNode() {
     }
 
+    /**
+     * Accepts a visitor to process this node.
+     *
+     * @param visitor The visitor that will process this node.
+     */
     @Override
-    public void accept(ASTVisitor v) {
-        v.visit(this);
+    public void accept(ASTVisitor visitor) {
+        visitor.visit(this);
     }
 }

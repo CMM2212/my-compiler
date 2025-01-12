@@ -77,13 +77,13 @@ public class TypeChecker implements ASTVisitor {
             throw new TypeException(
                     """
                     '%s' cannot be accessed as a %d dimensional array; it is only a %d dimensional array
-                    """.formatted(n.id.w, accessedDepth, declaredDepth),
+                    """.formatted(n.id.word, accessedDepth, declaredDepth),
                     n.getLine());
         else if (declaredDepth > accessedDepth)
             throw new TypeException(
                     """
                     '%s' cannot be accessed as a %d dimensional array; it is a %d dimensional array
-                    """.formatted(n.id.w, accessedDepth, declaredDepth),
+                    """.formatted(n.id.word, accessedDepth, declaredDepth),
                      n.getLine());
     }
 
@@ -107,7 +107,7 @@ public class TypeChecker implements ASTVisitor {
     }
 
     private static void validateArithmeticOperator(TypeNode left, TypeNode right, BinaryExpressionNode n) {
-        if (!Type.numeric(left.type) || !Type.numeric(right.type))
+        if (!Type.isNumeric(left.type) || !Type.isNumeric(right.type))
             throw new TypeException(
                     """
                     arithmetic operator '%s' expects numeric types, not '%s' and '%s'
@@ -125,7 +125,7 @@ public class TypeChecker implements ASTVisitor {
     }
 
     private static void validateNegationOperator(UnaryNode n) {
-        if (!Type.numeric(n.getType().type))
+        if (!Type.isNumeric(n.getType().type))
             throw new TypeException(
                     """
                     unary '-' operator expects numeric type, not '%s'
@@ -213,12 +213,12 @@ public class TypeChecker implements ASTVisitor {
 
     @Override
     public void visit(UnaryNode n) {
-        n.right.accept(this);
-        n.setType(n.right);
+        n.expression.accept(this);
+        n.setType(n.expression);
 
-        if (n.op.tag == Tag.NOT)
+        if (n.operator.tag == Tag.NOT)
             validateNotOperator(n);
-        else if (n.op.tag == Tag.SUB)
+        else if (n.operator.tag == Tag.SUB)
             validateNegationOperator(n);
     }
 
@@ -235,7 +235,7 @@ public class TypeChecker implements ASTVisitor {
 
     @Override
     public void visit(IdNode n) {
-        n.setType(env.getSymbol(n.w));
+        n.setType(env.getSymbol(n.word));
     }
 
     @Override

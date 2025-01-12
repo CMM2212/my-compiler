@@ -134,7 +134,7 @@ public class IntermediateCodeGenerator implements ASTVisitor {
     }
 
     public ExpressionNode reduceUnaryExpression(UnaryNode n, Boolean needSingleResult) {
-        return reduceExpression(n.right, needSingleResult);
+        return reduceExpression(n.expression, needSingleResult);
     }
 
     public LocNode reduceLocNode(LocNode n, Boolean needSingleResult) {
@@ -212,7 +212,7 @@ public class IntermediateCodeGenerator implements ASTVisitor {
         int stride = 1;
         // Excluding the first dimension, find the product of the declared sizes of the dimensions.
         for (int i = dimension + 1; i < type.getDepth(); i++)
-            stride *= type.getDimSize(i).num;
+            stride *= type.getDimensionSize(i).num;
         return stride;
     }
 

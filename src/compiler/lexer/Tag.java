@@ -1,7 +1,10 @@
 package compiler.lexer;
 
 /**
- * Represents the tags for the tokens.
+ * Represents the tags for tokens.
+ *
+ * Tags are unique integers that represent the token type. They begin at
+ * 256 to avoid conflicts with ASCII values.
  */
 public class Tag {
     public final static int
