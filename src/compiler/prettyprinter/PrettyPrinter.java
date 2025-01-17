@@ -106,29 +106,29 @@ public class PrettyPrinter implements ASTVisitor {
     ///////////////////////////////////////////////////////////////////////////////
 
     @Override
-    public void visit(ProgramNode n) {
-        n.block.accept(this);
+    public void visit(ProgramNode node) {
+        node.block.accept(this);
     }
 
     @Override
-    public void visit(BlockNode n) {
+    public void visit(BlockNode node) {
         controlStack.add(false);
         printIndent();
         println("{");
 
-        for (DeclNode decl : n.decls) {
+        for (DeclNode decl : node.decls) {
             indent++;
             decl.accept(this);
             indent--;
         }
 
-        if (!n.decls.isEmpty())
+        if (!node.decls.isEmpty())
             println("");
 
         conditionalStack.add(false);
 
 
-        for (StatementNode statement : n.statements) {
+        for (StatementNode statement : node.statements) {
             indent++;
             printStatement(statement);
             indent--;
@@ -159,122 +159,122 @@ public class PrettyPrinter implements ASTVisitor {
 //    }
 
     @Override
-    public void visit(DeclNode n) {
+    public void visit(DeclNode node) {
         printIndent();
-        n.type.accept(this);
+        node.type.accept(this);
         print(" ");
-        n.id.accept(this);
+        node.id.accept(this);
         println(" ;");
     }
 
     @Override
-    public void visit(TypeNode n) {
-        print(n.type.toString());
-        if (n.array != null)
-            n.array.accept(this);
+    public void visit(TypeNode node) {
+        print(node.type.toString());
+        if (node.array != null)
+            node.array.accept(this);
     }
 
     @Override
-    public void visit(ArrayTypeNode n) {
+    public void visit(ArrayTypeNode node) {
         print("[");
-        n.size.accept(this);
+        node.size.accept(this);
         print("]");
-        if (n.type != null)
-            n.type.accept(this);
+        if (node.type != null)
+            node.type.accept(this);
     }
 
     // Statement Nodes
     ///////////////////////////////////////////////////////////////////////////////
     @Override
-    public void visit(AssignmentNode n) {
+    public void visit(AssignmentNode node) {
         printIndent();
-        n.left.accept(this);
+        node.left.accept(this);
         print(" = ");
-        n.expression.accept(this);
+        node.expression.accept(this);
         println(" ;");
     }
 
     @Override
-    public void visit(IfNode n) {
+    public void visit(IfNode node) {
         printIndent();
         print("if (");
-        n.expression.accept(this);
+        node.expression.accept(this);
         print(")");
 
         conditionalStack.add(true);
         controlStack.add(false);
-        printStatement(n.thenStatement);
+        printStatement(node.thenStatement);
         conditionalStack.pop();
         controlStack.pop();
 
 
-        if (n.elseStatement != null) {
-            if (n.elseStatement instanceof IfNode) {
+        if (node.elseStatement != null) {
+            if (node.elseStatement instanceof IfNode) {
                 printIndent();
                 print("else ");
-                n.elseStatement.accept(this);
+                node.elseStatement.accept(this);
             } else {
                 printIndent();
                 print("else");
 
                 conditionalStack.add(false);
                 controlStack.add(false);
-                printStatement(n.elseStatement);
+                printStatement(node.elseStatement);
                 conditionalStack.pop();
                 controlStack.pop();
             }
-        } else if (n.thenStatement instanceof BlockNode) {
+        } else if (node.thenStatement instanceof BlockNode) {
             println("");
         }
     }
 
     @Override
-    public void visit(WhileNode n) {
+    public void visit(WhileNode node) {
         printIndent();
         print("while (");
-        n.expression.accept(this);
+        node.expression.accept(this);
         print(")");
 
         conditionalStack.add(false);
         controlStack.add(false);
-        printStatement(n.body);
+        printStatement(node.body);
         controlStack.pop();
         conditionalStack.pop();
     }
 
     @Override
-    public void visit(DoWhileNode n) {
+    public void visit(DoWhileNode node) {
         printIndent();
         print("do");
 
         conditionalStack.add(true);
         controlStack.add(false);
-        printStatement(n.body);
+        printStatement(node.body);
         conditionalStack.pop();
         controlStack.pop();
 
         printIndent();
         print("while (");
-        n.expression.accept(this);
+        node.expression.accept(this);
         println(") ;");
     }
 
     @Override
-    public void visit(LocNode n) {
-        n.id.accept(this);
-        if (n.array != null) {
-            n.array.accept(this);
+    public void visit(LocNode node) {
+        node.id.accept(this);
+        if (node.array != null) {
+            node.array.accept(this);
         }
     }
 
     @Override
-    public void visit(ArrayLocNode n) {
+    public void visit(ArrayLocNode node) {
         print("[");
-        n.expression.accept(this);
+        node.expression.accept(this);
         print("]");
 
-        if (n.array != null) {
-            n.array.accept(this);
+        if (node.array != null) {
+            node.array.accept(this);
         }
     }
 
@@ -282,60 +282,60 @@ public class PrettyPrinter implements ASTVisitor {
     ///////////////////////////////////////////////////////////////////////////////
 
     @Override
-    public void visit(BinaryExpressionNode n) {
-        n.left.accept(this);
+    public void visit(BinaryExpressionNode node) {
+        node.left.accept(this);
         print(" ");
-        print(n.operator);
+        print(node.operator);
         print(" ");
-        n.right.accept(this);
+        node.right.accept(this);
     }
 
     @Override
-    public void visit(UnaryNode n) {
-        if (n.operator != null ) {
-            print(n.operator.toString());
+    public void visit(UnaryNode node) {
+        if (node.operator != null ) {
+            print(node.operator.toString());
         }
-        n.expression.accept(this);
+        node.expression.accept(this);
     }
 
     // Terminal Nodes
     ///////////////////////////////////////////////////////////////////////////////
 
     @Override
-    public void visit(ParenthesisNode n) {
+    public void visit(ParenthesisNode node) {
         print("(");
-        n.expression.accept(this);
+        node.expression.accept(this);
         print(")");
     }
 
     @Override
-    public void visit(BreakNode n) {
+    public void visit(BreakNode node) {
         printIndent();
         println("break ;");
     }
 
     @Override
-    public void visit(FalseNode n) {
+    public void visit(FalseNode node) {
         print("false");
     }
 
     @Override
-    public void visit(IdNode n) {
-        print(n.id);
+    public void visit(IdNode node) {
+        print(node.id);
     }
 
     @Override
-    public void visit(NumNode n) {
-        print("" + n.num);
+    public void visit(NumNode node) {
+        print("" + node.num);
     }
 
     @Override
-    public void visit(RealNode n) {
-        print(n.toString());
+    public void visit(RealNode node) {
+        print(node.toString());
     }
 
     @Override
-    public void visit(TrueNode n) {
+    public void visit(TrueNode node) {
         print("true");
     }
 }

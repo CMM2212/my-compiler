@@ -16,6 +16,7 @@ import java.util.List;
  * exception handling.
  */
 public class LexerState {
+    private static final char EOF = '\0'; // End of file character
     private int line = 0; // Current line number
     private int position = 0; // Current position in the line
     private int tokenLength = 0; // Length of the current token being processed
@@ -28,9 +29,10 @@ public class LexerState {
      *
      * @param c The next character to process.
      */
-    public void advanceChar(char c) {
-        // Update information about the current line.
-        currentLine.append(c);
+    public void advanceChararacter(char c) {
+        // Update information about the current line, if the character is not EOF.
+        if (c != EOF)
+            currentLine.append(c);
         position++;
         tokenLength++;
         // If it is a newline character, save it as the previousLine and reset the currentLine.
@@ -74,9 +76,18 @@ public class LexerState {
      * where the semicolon is actually missing.
      */
     public void revertToPreviousLine() {
-        line--;
-        currentLine = new StringBuilder(previousLine);
-        position = currentLine.length();
+        for (int i = line - 1; i > 0; i--) {
+            line--;
+            currentLine = new StringBuilder(lines.get(i));
+            previousLine = lines.get(i - 1);
+            lines.remove(i);
+            position = currentLine.length();
+            if (!currentLine.toString().isBlank())
+                break;
+        }
+//        line--;
+//        currentLine = new StringBuilder(previousLine);
+//        position = currentLine.length();
     }
 
     /**

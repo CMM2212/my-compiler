@@ -76,6 +76,13 @@ public class ReservedWords {
         return null;
     }
 
+    public static Word getOperator(String operator) {
+        Word word = get(operator);
+        if (word != null)
+            return word;
+        return get(operator.substring(0, 1));
+    }
+
     /**
      * Get the string representation of the given tag.
      *

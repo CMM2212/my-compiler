@@ -25,61 +25,61 @@ public class IntermediateCodeGenerator implements ASTVisitor {
     }
 
     @Override
-    public void visit(ProgramNode n) {
+    public void visit(ProgramNode node) {
         currentStatements = new ArrayList<>();
-        n.block.accept(this);
+        node.block.accept(this);
     }
 
     @Override
-    public void visit(BlockNode n) {
-        for (StatementNode statement : n.statements)
+    public void visit(BlockNode node) {
+        for (StatementNode statement : node.statements)
             statement.accept(this);
     }
 
     @Override
-    public void visit(AssignmentNode n) {
-        n.left = reduceLocNode(n.left, false);
-        n.expression = reduceExpression(n.expression, n.left.isArray());
-        emitAssignment(n.left, n.expression);
+    public void visit(AssignmentNode node) {
+        node.left = reduceLocNode(node.left, false);
+        node.expression = reduceExpression(node.expression, node.left.isArray());
+        emitAssignment(node.left, node.expression);
     }
 
     @Override
-    public void visit(IfNode n) {
-        n.expression = reduceExpression(n.expression, false);
+    public void visit(IfNode node) {
+        node.expression = reduceExpression(node.expression, false);
 
         LabelNode falseLabel = LabelNode.newLabel();
         // End label only necessary if there is an else statement.
-        LabelNode endLabel = (n.elseStatement != null) ? LabelNode.newLabel() : null;
+        LabelNode endLabel = (node.elseStatement != null) ? LabelNode.newLabel() : null;
 
-        emitIfFalse(n.expression, falseLabel);
+        emitIfFalse(node.expression, falseLabel);
 
-        n.thenStatement.accept(this);
+        node.thenStatement.accept(this);
 
-        if (n.elseStatement != null)
+        if (node.elseStatement != null)
             emitGoto(endLabel);
 
         emitLabel(falseLabel);
 
-        if (n.elseStatement != null) {
-            n.elseStatement.accept(this);
+        if (node.elseStatement != null) {
+            node.elseStatement.accept(this);
             emitLabel(endLabel);
         }
     }
 
     @Override
-    public void visit(WhileNode n) {
+    public void visit(WhileNode node) {
         LabelNode startLabel = LabelNode.newLabel();
         LabelNode endLabel = LabelNode.newLabel();
         emitLabel(startLabel);
 
         // If it is a true literal, we don't need a false check.
-        if (!(n.expression instanceof TrueNode)) {
-            n.expression = reduceExpression(n.expression, false);
-            emitIfFalse(n.expression, endLabel);
+        if (!(node.expression instanceof TrueNode)) {
+            node.expression = reduceExpression(node.expression, false);
+            emitIfFalse(node.expression, endLabel);
         }
 
         loopEndLabels.push(endLabel);
-        n.body.accept(this);
+        node.body.accept(this);
         loopEndLabels.pop();
 
         emitGoto(startLabel);
@@ -87,23 +87,23 @@ public class IntermediateCodeGenerator implements ASTVisitor {
     }
 
     @Override
-    public void visit(DoWhileNode n) {
+    public void visit(DoWhileNode node) {
         LabelNode startLabel =LabelNode.newLabel();
         LabelNode endLabel = LabelNode.newLabel();
         emitLabel(startLabel);
 
         loopEndLabels.push(endLabel);
-        n.body.accept(this);
+        node.body.accept(this);
         loopEndLabels.pop();
 
-        n.expression = reduceExpression(n.expression, false);
+        node.expression = reduceExpression(node.expression, false);
 
-        emitIfTrue(n.expression, startLabel);
+        emitIfTrue(node.expression, startLabel);
     }
 
 
     @Override
-    public void visit(BreakNode n) {
+    public void visit(BreakNode node) {
         emitGoto(loopEndLabels.peek());
     }
 
@@ -134,7 +134,8 @@ public class IntermediateCodeGenerator implements ASTVisitor {
     }
 
     public ExpressionNode reduceUnaryExpression(UnaryNode n, Boolean needSingleResult) {
-        return reduceExpression(n.expression, needSingleResult);
+        n.expression = reduceExpression(n.expression, needSingleResult);
+        return n;
     }
 
     public LocNode reduceLocNode(LocNode n, Boolean needSingleResult) {

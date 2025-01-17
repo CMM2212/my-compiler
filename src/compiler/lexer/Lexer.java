@@ -1,6 +1,7 @@
 package compiler.lexer;
 
 //import compiler.errors.ErrorContext;
+import compiler.errors.CompilerException;
 import compiler.errors.ErrorContext;
 import compiler.errors.LexicalException;
 import compiler.lexer.tokens.Num;
@@ -11,13 +12,21 @@ import compiler.lexer.tokens.Word;
 import java.io.BufferedInputStream;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.util.Set;
 
 public class Lexer {
     private final LexerState state = new LexerState();
     private final String filename;
-    private BufferedInputStream bin;
+    private final BufferedInputStream bin;
 
-    private char peek = ' ';
+    private char nextCharacter = ' ';
+
+    private enum TokenCategory {
+        EOF, NUMBER, WORD, OPERATOR, PUNCTUATION
+    }
+
+    private final Set<String> OPERATOR_LEXEMES = Set.of("<", ">", "=", "!", "&", "|", "+", "-", "*", "/");
+    private final Set<String> PUNCTUATION_LEXEMES = Set.of(";", "(", ")", "{", "}", "[", "]");
 
     private static final char EOF = '\0';
 
@@ -28,81 +37,94 @@ public class Lexer {
         try {
             bin = new BufferedInputStream(new FileInputStream(filename));
         } catch (IOException e) {
-            System.out.println("Error opening file: " + filename);
+            throw new CompilerException("Error opening file: " + filename);
         }
     }
 
-    void readChar() throws IOException {
-        int value = bin.read();
-        if (value == -1) {
-            peek = EOF;
-            return;
-        }
-        char c = (char) value;
-        state.advanceChar(c);
-        peek = c;
-    }
-
-    public Token scan() throws IOException {
+    public Token getNextToken() {
         ignoreWhitespace();
 
-        if ((int)peek == 0) {
-            return new Token(Tag.EOF);
-        } else if (Character.isDigit(peek)) {
-            return readNumber();
-        } else if (Character.isLetter(peek)) {
-            return readWord();
-        } else if (isOperator(peek)) {
-            return readOperator();
-        } else if (isPunctuation(peek)) {
-            return readPunctuation();
-        }
+        TokenCategory tokenCategory = getTokenCategory();
 
-        Token t = new Token(peek);
-        state.incrementTokenLength();
-        throw new LexicalException("Unexpected token: " + t);
+        return switch (tokenCategory) {
+            case EOF -> new Token(Tag.EOF);
+            case NUMBER -> readNumber();
+            case WORD -> readWord();
+            case OPERATOR -> readOperator();
+            case PUNCTUATION -> readPunctuation();
+        };
     }
 
-    private void ignoreWhitespace() throws IOException {
-        while (Character.isWhitespace(peek)) {
-            readChar();
-        }
+    private void ignoreWhitespace() {
+        while (Character.isWhitespace(nextCharacter))
+            getNextCharacter();
         state.resetTokenLength();
     }
 
-    private Token readNumber() throws IOException {
-        StringBuilder digits = new StringBuilder();
+    private void getNextCharacter() {
+        nextCharacter = readNextCharacter();
+        state.advanceChararacter(nextCharacter);
+    }
 
-        // Handle integer part first
-        do {
-            digits.append(peek);
-            readChar();
-        } while (Character.isDigit(peek));
-
-
-        // If is integer, return Num
-        if (peek != '.') {
-            if (isValidEndOfNumber(peek)) {
-                return new Num(Integer.parseInt(digits.toString()));
-            } else {
-                state.incrementTokenLength();
-                throw new LexicalException("invalid decimal literal");
-            }
+    private char readNextCharacter() {
+        try {
+            int nextCharacterValue = bin.read();
+            if (nextCharacterValue == -1 )
+                return EOF;
+            else
+                return (char) nextCharacterValue;
+        } catch (IOException e) {
+            throw new CompilerException("Error reading file: " + filename);
         }
+    }
 
-        // Add decimal point and then if there are any digits after the decimal point, add those.
-        do {
-            digits.append(peek);
-            readChar();
-        } while (Character.isDigit(peek));
+    private TokenCategory getTokenCategory() {
+        if (nextCharacter == EOF)
+            return TokenCategory.EOF;
+        if (Character.isDigit(nextCharacter))
+            return TokenCategory.NUMBER;
+        if (Character.isLetter(nextCharacter))
+            return TokenCategory.WORD;
+        if (isOperator(nextCharacter))
+            return TokenCategory.OPERATOR;
+        if (isPunctuation(nextCharacter))
+            return TokenCategory.PUNCTUATION;
 
-        // If the next character is a valid character to follow a number, return a Real
-        if (isValidEndOfNumber(peek)) {
-            return new Real(Float.parseFloat(digits.toString()));
-        } else {
+        state.incrementTokenLength();
+        throw new LexicalException("Unexpected token: " + nextCharacter);
+    }
+
+    private Token readNumber() {
+        StringBuilder digits = new StringBuilder();
+        boolean hasDecimal = parseNumber(digits);
+        validateNumber();
+
+        return createNumberToken(hasDecimal, digits);
+    }
+
+    private boolean parseNumber(StringBuilder digits) {
+        boolean hasSeenDecimal = false;
+        while (Character.isDigit(nextCharacter) || (nextCharacter == '.' && !hasSeenDecimal)) {
+            if (nextCharacter == '.')
+                hasSeenDecimal = true;
+            digits.append(nextCharacter);
+            getNextCharacter();
+        }
+        return hasSeenDecimal;
+    }
+
+    private void validateNumber() {
+        if (!isValidEndOfNumber(nextCharacter)) {
             state.incrementTokenLength();
             throw new LexicalException("invalid decimal literal");
         }
+    }
+
+    private static Token createNumberToken(boolean hasDecimal, StringBuilder digits) {
+        if (hasDecimal)
+            return new Real(Float.parseFloat(digits.toString()));
+        else
+            return new Num(Integer.parseInt(digits.toString()));
     }
 
     boolean isValidEndOfNumber(char c) {
@@ -110,13 +132,13 @@ public class Lexer {
                 c == '\t' || c == '\r';
     }
 
-    private Token readWord() throws IOException {
+    private Token readWord() {
         // Read words as identifiers or reserved words
         StringBuilder b = new StringBuilder();
         do {
-            b.append(peek);
-            readChar();
-        } while (Character.isLetterOrDigit(peek));
+            b.append(nextCharacter);
+            getNextCharacter();
+        } while (Character.isLetterOrDigit(nextCharacter));
 
         String s = b.toString();
         Word w = ReservedWords.get(s);
@@ -130,71 +152,60 @@ public class Lexer {
     }
 
     boolean isOperator(char c) {
-        return c == '<' || c == '>' || c == '=' || c == '!' || c == '&' || c == '|'
-                || c == '+' || c == '-' || c == '*' || c == '/';
+        return OPERATOR_LEXEMES.contains("" + c);
     }
 
-    private Token readOperator() throws IOException {
+    private Token readOperator() {
         // Read symbols as reserved words (operators)
-        StringBuilder b = new StringBuilder();
-        b.append(peek);
-        readChar();
-        // Attempt to handle double symbol operators
-        // If not, just use the first symbol.
-        if (ReservedWords.get(b.toString() + peek) != null) {
-            b.append(peek);
-            readChar();
-        }
+        String operator = "" + nextCharacter;
+        getNextCharacter();
+        operator += nextCharacter;
 
-        String s = b.toString();
-        Word w = ReservedWords.get(s);
-
-        if (w != null) {
-            return w;
-        } else {
-            throw new LexicalException("Unexpected token: " + b);
+        Word operatorToken = ReservedWords.getOperator(operator);
+        if (operatorToken != null) {
+            if (operatorToken.lexeme.length() == 2)
+                getNextCharacter();
+            return operatorToken;
         }
+        throw new LexicalException("Unexpected token: " + operator);
     }
 
     private boolean isPunctuation(char peek) {
-        return peek == ';' || peek == '(' || peek == ')' || peek == '{' || peek == '}'
-                || peek == '[' || peek == ']';
+        return PUNCTUATION_LEXEMES.contains("" + peek);
     }
 
-    private Token readPunctuation() throws IOException {
-        Token t = ReservedWords.get("" + peek);
-        readChar();
-        return t;
+    private Token readPunctuation() {
+        Token punctuationToken = ReservedWords.get("" + nextCharacter);
+        getNextCharacter();
+        return punctuationToken;
     }
 
-    public ErrorContext getErrorContext() throws IOException {
+    public ErrorContext getErrorContext() {
         int errorLength = state.getTokenLength();
         int errorPosition = state.getPosition() - 1 - errorLength;
 
         if (missingSemicolon) {
+            errorLength = 1;
+            errorPosition -= 1;
             if (shouldBePreviousLine()) {
                 state.revertToPreviousLine();
-                errorLength = 1;
                 errorPosition = state.getCurrentLine().length() - 2;
-                peek = '\n';
-            } else {
-                errorLength = 1;
-                errorPosition -= 2;
             }
         }
 
-        if (peek == EOF) {
+        if (nextCharacter == EOF) {
             errorLength = 1;
             errorPosition += 2;
         }
 
-        while (peek != '\n') {
-            if (peek == EOF) {
+        while (nextCharacter != '\n') {
+            if (nextCharacter == EOF) {
                 state.endLine();
                 break;
             }
-            readChar();
+            getNextCharacter();
         }
+
         return new ErrorContext(filename, state.getLine(), errorPosition, errorLength, state.getPreviousLine(),
                 state.getLines());
     }

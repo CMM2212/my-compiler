@@ -1,7 +1,8 @@
 {
     int x;
+    float y;
 
-    do {
-        x = x + 1;
-    } while (x < 10);
-}
+   x =  5 + 5;
+    y = 5
+
+ }

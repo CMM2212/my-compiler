@@ -25,15 +25,11 @@ public class Main {
             System.out.println("Starting lexical analysis...\n");
         }
         catch (CompilerException e) {
-            try {
                 if (e instanceof LexicalException || e instanceof SyntaxException) {
                     errorPrinter.printError(lexer.getErrorContext(), e);
                 } else if (e instanceof TypeException) {
                     errorPrinter.printError(lexer.getErrorContext().lines, lexer.getErrorContext(), (TypeException) e);
                 }
-            } catch (IOException e1) {
-                e1.printStackTrace();
-            }
         }
     }
 }

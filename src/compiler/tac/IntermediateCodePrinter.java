@@ -92,143 +92,141 @@ public class IntermediateCodePrinter implements ASTVisitor {
     }
 
     @Override
-    public void visit(ProgramNode n) {
-        n.block.accept(this);
+    public void visit(ProgramNode node) {
+        node.block.accept(this);
     }
 
     @Override
-    public void visit(BlockNode n) {
-        for (StatementNode statement : n.statements) {
+    public void visit(BlockNode node) {
+        for (StatementNode statement : node.statements) {
             statement.accept(this);
         }
     }
 
     @Override
-    public void visit(AssignmentNode n) {
-        n.left.accept(this);
+    public void visit(AssignmentNode node) {
+        node.left.accept(this);
         print("=");
-        n.expression.accept(this);
+        node.expression.accept(this);
         println("");
     }
 
     @Override
-    public void visit(WhileNode n) {
+    public void visit(WhileNode node) {
         print("while (");
-        n.expression.accept(this);
+        node.expression.accept(this);
         print(")");
 
-        printStatement(n.body);
+        printStatement(node.body);
     }
 
     @Override
-    public void visit(DoWhileNode n) {
+    public void visit(DoWhileNode node) {
         print("do");
 
-        printStatement(n.body);
+        printStatement(node.body);
 
         print("while (");
-        n.expression.accept(this);
+        node.expression.accept(this);
         println(") ;");
     }
 
     @Override
-    public void visit(IfFalseNode n) {
+    public void visit(IfFalseNode node) {
         print(" iffalse ");
-        n.expression.accept(this);
+        node.expression.accept(this);
     }
 
     @Override
-    public void visit(IfTrueNode n) {
+    public void visit(IfTrueNode node) {
         print( " if ");
-        n.expression.accept(this);
+        node.expression.accept(this);
         print(" ");
     }
 
     @Override
-    public void visit(LocNode n) {
-        n.id.accept(this);
-        if (n.array != null) {
-            n.array.accept(this);
+    public void visit(LocNode node) {
+        node.id.accept(this);
+        if (node.array != null) {
+            node.array.accept(this);
         }
     }
 
     @Override
-    public void visit(ArrayLocNode n) {
+    public void visit(ArrayLocNode node) {
         print("[");
-        n.expression.accept(this);
+        node.expression.accept(this);
         print("] ");
 
-        if (n.array != null) {
-            n.array.accept(this);
+        if (node.array != null) {
+            node.array.accept(this);
         }
     }
 
     @Override
-    public void visit(BinaryExpressionNode n) {
-        n.left.accept(this);
-        print(n.operator);
-        n.right.accept(this);
+    public void visit(BinaryExpressionNode node) {
+        node.left.accept(this);
+        print(node.operator);
+        node.right.accept(this);
     }
 
     @Override
-    public void visit(UnaryNode n) {
-        if (n.operator != null ) {
-            print(n.operator.toString());
-        }
-        n.expression.accept(this);
+    public void visit(UnaryNode node) {
+        print(node.operator.toString());
+        node.expression.accept(this);
     }
 
     @Override
-    public void visit(ParenthesisNode n) {
+    public void visit(ParenthesisNode node) {
         print("(");
-        n.expression.accept(this);
+        node.expression.accept(this);
         print(")");
     }
 
     @Override
-    public void visit(BreakNode n) {
+    public void visit(BreakNode node) {
         println("break ;");
     }
 
     @Override
-    public void visit(FalseNode n) {
+    public void visit(FalseNode node) {
         print(" false ");
     }
 
     @Override
-    public void visit(IdNode n) {
-        print(" " + n.id + " ");
+    public void visit(IdNode node) {
+        print(" " + node.id + " ");
     }
 
     @Override
-    public void visit(NumNode n) {
-        print(" " + n.num + " ");
+    public void visit(NumNode node) {
+        print(" " + node.num + " ");
     }
 
     @Override
-    public void visit(RealNode n) {
-        print(" " + n.toString() + " ");
+    public void visit(RealNode node) {
+        print(" " + node.toString() + " ");
     }
 
     @Override
-    public void visit(TrueNode n) {
+    public void visit(TrueNode node) {
         print(" true ");
     }
 
     @Override
-    public void visit(GotoNode n) {
+    public void visit(GotoNode node) {
         print(" goto ");
-        print (n.label.id);
+        print (node.label.id);
         println("");
     }
 
     @Override
-    public void visit(LabelNode n) {
-        printLabel(n.id + ":");
+    public void visit(LabelNode node) {
+        printLabel(node.id + ":");
     }
 
     @Override
-    public void visit(TempNode n) {
-        print(" " + n.id + " ");
+    public void visit(TempNode node) {
+        print(" " + node.id + " ");
     }
 }
