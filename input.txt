@@ -2,7 +2,8 @@
     int x;
     float y;
 
-   x =  5 + 5;
-    y = 5
+if (x > 5)
+x = x + 10;
+y = x - 5;
 
  }
