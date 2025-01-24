@@ -35,19 +35,20 @@ public class ErrorPrinter {
      * @param e The exception that was thrown.
      */
     public void printError(ErrorContext context, CompilerException e) {
+        String lineText = context.lines.get(context.line);
         // Print error message and use ANSI escape codes for colored output.
         // Example string results are placed in comments for reference.
         System.out.println(
                 BLUE +
                      "  File \"" + context.filename +"\", line " + // File "input.txt", line
                 GREEN +
-                    context.line + // 4
+                        (context.line + 1) + // 4
                 BLUE +
                     " position " + // position
                 GREEN +
                     context.position + "\n    " + // 8
                 RED
-                    + context.lineText + // a = 1.b;
+                    + lineText + // a = 1.b;
                 RESET +
                     "    " + " ".repeat(context.position) + "^".repeat(context.length) + "\n" + //        ^^^
                 RED +

@@ -20,8 +20,7 @@ public class LexerState {
     private int line = 0; // Current line number
     private int position = 0; // Current position in the line
     private int tokenLength = 0; // Length of the current token being processed
-    private StringBuilder currentLine = new StringBuilder(); // Current line being processed
-    private String previousLine = ""; // Previous line that was processed
+    private final StringBuilder currentLine = new StringBuilder(); // Current line being processed
     private final List<String> lines = new ArrayList<>(); // List of all lines from the source code
 
     /**
@@ -29,7 +28,7 @@ public class LexerState {
      *
      * @param c The next character to process.
      */
-    public void advanceChararacter(char c) {
+    public void advanceCharacter(char c) {
         // Update information about the current line, if the character is not EOF.
         if (c != EOF)
             currentLine.append(c);
@@ -38,7 +37,6 @@ public class LexerState {
         // If it is a newline character, save it as the previousLine and reset the currentLine.
         if (c == '\n') {
             lines.add(currentLine.toString());
-            previousLine = currentLine.toString();
             currentLine.setLength(0);
             line++;
             position = 0;
@@ -66,28 +64,6 @@ public class LexerState {
      */
     public void endLine() {
         currentLine.append('\n');
-    }
-
-    /**
-     * Moves the lexer state back to the previous line.
-     *
-     * Useful for when a missing semicolon is detected only after it has moved to the next line.
-     * This allows it to revert back to the previous line and point to the end of the line
-     * where the semicolon is actually missing.
-     */
-    public void revertToPreviousLine() {
-        for (int i = line - 1; i > 0; i--) {
-            line--;
-            currentLine = new StringBuilder(lines.get(i));
-            previousLine = lines.get(i - 1);
-            lines.remove(i);
-            position = currentLine.length();
-            if (!currentLine.toString().isBlank())
-                break;
-        }
-//        line--;
-//        currentLine = new StringBuilder(previousLine);
-//        position = currentLine.length();
     }
 
     /**
@@ -124,15 +100,6 @@ public class LexerState {
      */
     public String getCurrentLine() {
         return currentLine.toString();
-    }
-
-    /**
-     * Gets the previous line that was processed.
-     *
-     * @return the previous line that was processed.
-     */
-    public String getPreviousLine() {
-        return previousLine;
     }
 
     /**

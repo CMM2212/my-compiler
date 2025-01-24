@@ -27,12 +27,11 @@ public class ErrorContext {
      * @param lineText The text of the line where the error occurred.
      * @param lines All the lines of text from the file where the error occurred.
      */
-    public ErrorContext(String filename, int line, int position, int length, String lineText, List<String> lines) {
+    public ErrorContext(String filename, int line, int position, int length, List<String> lines) {
         this.filename = filename;
         this.line = line;
         this.position = position;
         this.length = length;
-        this.lineText = lineText;
         this.lines = lines;
     }
 }

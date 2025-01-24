@@ -1,3 +1,9 @@
+/**
+ * **DEPRECATED**
+ * This class is no longer used in the project and was created for an earlier version
+ * of the compiler where the goal was to pretty print the AST. It does not properly work
+ * with the current version of the AST, but remains for reference.
+ */
 package compiler.prettyprinter;
 
 import compiler.parser.ast.ASTVisitor;
@@ -15,6 +21,12 @@ import java.io.FileWriter;
 import java.io.PrintWriter;
 import java.util.Stack;
 
+/**
+ * A class that prints the AST in a pretty format where each node is indented based on its depth in the tree,
+ * and braces are placed around blocks.
+ *
+ * When a block has only one statement within a conditional, the braces are omitted.
+ */
 public class PrettyPrinter implements ASTVisitor {
     public Parser parser;
 
@@ -35,6 +47,11 @@ public class PrettyPrinter implements ASTVisitor {
 
     PrintWriter writer;
 
+    /**
+     * Create a pretty printer and traverse the AST to print it to the console.
+     *
+     * @param parser The parser containing the AST to print.
+     */
     public PrettyPrinter(Parser parser) {
         conditionalStack.add(false);
         this.parser = parser;
@@ -43,6 +60,12 @@ public class PrettyPrinter implements ASTVisitor {
         writer.close();
     }
 
+    /**
+     * Create a pretty printer and traverse the AST to print it to a file.
+     *
+     * @param parser The parser containing the AST to print.
+     * @param filename The name of the file to write the AST to.
+     */
     public PrettyPrinter(Parser parser, String filename) {
         conditionalStack.add(false);
         this.parser = parser;
@@ -56,60 +79,70 @@ public class PrettyPrinter implements ASTVisitor {
         writer.close();
     }
 
-    // Helper Methods
-    ///////////////////////////////////////////////////////////////////////////////
-
-    void print(String s) {
-        writer.print(s);
+    /**
+     * Print a string to the output.
+     *
+     * @param string The string to print.
+     */
+    void print(String string) {
+        writer.print(string);
         newLine = false;
     }
 
-    void println(String s) {
-        writer.println(s);
+    /**
+     * Print a string to the output followed by a newline.
+     *
+     * @param string The string to print.
+     */
+    void println(String string) {
+        writer.println(string);
         newLine = true;
     }
 
+    /**
+     * Print the indentation if it is a new line.
+     */
     void printIndent() {
         // Only print indent if it is a new line.
-        if (newLine) {
-            for (int i = 0; i < indent * indentSpaces; i++) {
+        if (newLine)
+            for (int i = 0; i < indent * indentSpaces; i++)
                 print(" ");
-            }
-        }
     }
 
-    void printStatement(StatementNode n) {
-        if (n instanceof BlockNode) {
+    /**
+     * Print a statement node with the appropriate indentation.
+     *
+     * @param node The statement node to print.
+     */
+    void printStatement(StatementNode node) {
+        if (node instanceof BlockNode) {
             print(" ");
-            n.accept(this);
+            node.accept(this);
         } else {
             println("");
             indent++;
-            n.accept(this);
+            node.accept(this);
             indent--;
         }
     }
 
-    void insertSpaceBetweenControlStatements(StatementNode n) {
-        boolean isControlStatement = n instanceof IfNode || n instanceof WhileNode ||
-                n instanceof DoWhileNode;
-        // If previous statement was a control statement, print a blank line.
-        if (controlStack.peek()) {
-            println("");
-        }
-
-        controlStack.pop();
-        controlStack.add(isControlStatement);
-    }
-
-    // Main Nodes
-    ///////////////////////////////////////////////////////////////////////////////
-
+    /**
+     * Visit a program node and visit the block node.
+     *
+     * @param node The program node to visit.
+     */
     @Override
     public void visit(ProgramNode node) {
         node.block.accept(this);
     }
 
+    /**
+     * Visit a block node and visit the declarations and statements.
+     *
+     * Print braces around the block and indent the contents.
+     *
+     * @param node The block node to visit.
+     */
     @Override
     public void visit(BlockNode node) {
         controlStack.add(false);
@@ -145,19 +178,11 @@ public class PrettyPrinter implements ASTVisitor {
         controlStack.pop();
     }
 
-//    @Override
-//    public void visit(DeclsNode n) {
-//        if (n.decl == null) {
-//            return;
-//        }
-//
-//        n.decl.accept(this);
-//
-//        if (n.decls != null) {
-//            n.decls.accept(this);
-//        }
-//    }
-
+    /**
+     * Visit a declaration node and visit the type and id.
+     *
+     * @param node The declaration node to visit.
+     */
     @Override
     public void visit(DeclNode node) {
         printIndent();
@@ -167,6 +192,11 @@ public class PrettyPrinter implements ASTVisitor {
         println(" ;");
     }
 
+    /**
+     * Visit a type node and print the type and visit the array if it exists.
+     *
+     * @param node The type node to visit.
+     */
     @Override
     public void visit(TypeNode node) {
         print(node.type.toString());
@@ -174,6 +204,11 @@ public class PrettyPrinter implements ASTVisitor {
             node.array.accept(this);
     }
 
+    /**
+     * Visit an array type node and print the size and visit any additional array dimensions after.
+     *
+     * @param node The array type node to visit.
+     */
     @Override
     public void visit(ArrayTypeNode node) {
         print("[");
@@ -183,8 +218,11 @@ public class PrettyPrinter implements ASTVisitor {
             node.type.accept(this);
     }
 
-    // Statement Nodes
-    ///////////////////////////////////////////////////////////////////////////////
+    /**
+     * Visit an assignment node and visit the left and right expressions.
+     *
+     * @param node The assignment node to visit.
+     */
     @Override
     public void visit(AssignmentNode node) {
         printIndent();
@@ -194,6 +232,11 @@ public class PrettyPrinter implements ASTVisitor {
         println(" ;");
     }
 
+    /**
+     * Visit an if node and visit the expression and then and optional else statements.
+     *
+     * @param node The if node to visit.
+     */
     @Override
     public void visit(IfNode node) {
         printIndent();
@@ -228,6 +271,11 @@ public class PrettyPrinter implements ASTVisitor {
         }
     }
 
+    /**
+     * Visit the while node and visit the expression and the body.
+     *
+     * @param node The while node to visit.
+     */
     @Override
     public void visit(WhileNode node) {
         printIndent();
@@ -242,6 +290,11 @@ public class PrettyPrinter implements ASTVisitor {
         conditionalStack.pop();
     }
 
+    /**
+     * Visit the do while node and visit the body and the expression.
+     *
+     * @param node The do while node to visit.
+     */
     @Override
     public void visit(DoWhileNode node) {
         printIndent();
@@ -259,6 +312,11 @@ public class PrettyPrinter implements ASTVisitor {
         println(") ;");
     }
 
+    /**
+     * Visit a loc node and visit the id and array if it exists.
+     *
+     * @param node The for node to visit.
+     */
     @Override
     public void visit(LocNode node) {
         node.id.accept(this);
@@ -267,6 +325,11 @@ public class PrettyPrinter implements ASTVisitor {
         }
     }
 
+    /**
+     * Visit the array node and any additional array dimensions.
+     *
+     * @param node The array node to visit.
+     */
     @Override
     public void visit(ArrayLocNode node) {
         print("[");
@@ -278,9 +341,11 @@ public class PrettyPrinter implements ASTVisitor {
         }
     }
 
-    // Expression Nodes
-    ///////////////////////////////////////////////////////////////////////////////
-
+    /**
+     * Visit the binary expression node and visit the left and right expressions.
+     *
+     * @param node The binary expression node to visit.
+     */
     @Override
     public void visit(BinaryExpressionNode node) {
         node.left.accept(this);
@@ -290,17 +355,22 @@ public class PrettyPrinter implements ASTVisitor {
         node.right.accept(this);
     }
 
+    /**
+     * Visit the unary node and visit the expression.
+     *
+     * @param node The unary node to visit.
+     */
     @Override
     public void visit(UnaryNode node) {
-        if (node.operator != null ) {
-            print(node.operator.toString());
-        }
+        print(node.operator.toString());
         node.expression.accept(this);
     }
 
-    // Terminal Nodes
-    ///////////////////////////////////////////////////////////////////////////////
-
+    /**
+     * Visit the parenthesis node and visit the expression.
+     *
+     * @param node The parenthesis node to visit.
+     */
     @Override
     public void visit(ParenthesisNode node) {
         print("(");
@@ -308,34 +378,64 @@ public class PrettyPrinter implements ASTVisitor {
         print(")");
     }
 
+    /**
+     * Visit the break node and print 'break ;'.
+     *
+     * @param node The break node to visit.
+     */
     @Override
     public void visit(BreakNode node) {
         printIndent();
         println("break ;");
     }
 
+    /**
+     * Visit the false node and print 'false'.
+     *
+     * @param node The false node to visit.
+     */
     @Override
     public void visit(FalseNode node) {
         print("false");
     }
 
+    /**
+     * Visit the true node and print 'true'.
+     *
+     * @param node The true node to visit.
+     */
+    @Override
+    public void visit(TrueNode node) {
+        print("true");
+    }
+
+    /**
+     * Visit the IdNode and print the identifier string.
+     *
+     * @param node The IdNode to visit.
+     */
     @Override
     public void visit(IdNode node) {
         print(node.id);
     }
 
+    /**
+     * Visit the num node and print the number.
+     *
+     * @param node The num node to visit.
+     */
     @Override
     public void visit(NumNode node) {
         print("" + node.num);
     }
 
+    /**
+     * Visit the real node and print the number.
+     *
+     * @param node The real node to visit.
+     */
     @Override
     public void visit(RealNode node) {
         print(node.toString());
-    }
-
-    @Override
-    public void visit(TrueNode node) {
-        print("true");
     }
 }
