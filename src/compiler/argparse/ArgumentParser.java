@@ -5,7 +5,7 @@ public record ArgumentParser(String inputFilename, String outputFilename) {
     public static ArgumentParser parseArguments(String[] args) {
         // Default values
         String inputFile = "input.txt";
-        String outputFile = null;
+        String outputFile = "output.txt";
 
         for (int i = 0; i < args.length; i++)
             switch (args[i]) {
