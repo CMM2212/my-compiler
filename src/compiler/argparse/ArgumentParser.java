@@ -1,4 +1,4 @@
-﻿package compiler.argparse;
+package compiler.argparse;
 
 public record ArgumentParser(String inputFilename, String outputFilename) {
 
